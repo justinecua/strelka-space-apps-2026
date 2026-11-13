@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/* Colors and font. Use them as classes, e.g. bg-mint, bg-good, text-muted. */
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #111111;
+  --color-muted: #8c8c8c;
+  --color-line: #e8e8e8;
+  --color-field: #f4f4f4;
+  --color-mint: #e7f5f5;
+  --color-cream: #fbfbe5;
+
+  --color-good: #52c07c;
+  --color-good-dark: #2b5d3e;
+  --color-good-soft: #dcf2e4;
+  --color-watch: #e4e06a;
+  --color-watch-text: #7d730a;
+  --color-watch-soft: #f7f5cf;
+  --color-danger: #e5674f;
+  --color-danger-soft: #fbe2dc;
+}
+
+:root {
+  color-scheme: light;
+  --page: #cfe7ea;
+}
+
+/* Dark mode: the same color names get dark values, so every component switches without changes.
+   ink and white swap, so black cards turn light and white cards turn dark. */
+.dark {
+  color-scheme: dark;
+  --page: #0b0c0d;
+  --color-white: #17191b;
+  --color-ink: #f1f1ee;
+  --color-muted: #8f9396;
+  --color-line: #2c2f32;
+  --color-field: #222528;
+  --color-mint: #1a2b2c;
+  --color-cream: #29291c;
+  --color-good-dark: #8fdcab;
+  --color-good-soft: #1d3326;
+  --color-watch-text: #e4e06a;
+  --color-watch-soft: #33321a;
+  --color-danger-soft: #3a211c;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--color-ink);
+  background: var(--page);
+}
+
+@keyframes pulse-ring {
+  from { transform: scale(1); opacity: 0.6; }
+  to { transform: scale(2.6); opacity: 0; }
+}
+.pulse-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.fade-in {
+  animation: fade-in 0.3s ease-out both;
+}

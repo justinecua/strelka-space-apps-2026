@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <title>Strelka · Astronaut Health</title>
+    <script>
+      // Apply the saved theme before the app loads, so dark mode doesn't flash white first.
+      try {
+        var saved = localStorage.getItem('strelka.theme')
+        var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
+        if (dark) document.documentElement.classList.add('dark')
+      } catch (error) {}
+    </script>
+    <style>
+      /* Loading screen: shown by the browser right away, removed by src/lib/splash.js. */
+      #splash { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: #cfe7ea; font-family: 'Plus Jakarta Sans', sans-serif; transition: opacity 0.4s ease; }
+      #splash img { width: 120px; height: 120px; animation: splash-float 2s ease-in-out infinite; }
+      #splash p { margin: 0; font-size: 32px; font-weight: 400; color: #111111; }
+      #splash.splash-hide { opacity: 0; pointer-events: none; }
+      .dark #splash { background: #0b0c0d; }
+      .dark #splash p { color: #f1f1ee; }
+      @keyframes splash-float { 50% { transform: translateY(-8px); } }
+    </style>
+  </head>
+  <body>
+    <div id="splash">
+      <img src="/favicon.svg" alt="" />
+      <p>Strelka</p>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
