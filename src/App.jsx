@@ -1,5 +1,6 @@
-// Root component. New users see Welcome → Setup → first check-in; after that, the three tabs.
-// The tab is kept in the URL hash (#today, #checkin, #body) so pages can be linked directly.
+// Root component. New users see Welcome → Setup → first check-in; after that, the tabs
+// (Today, Check-in, Body, History) with a floating voice assistant on every page.
+// The tab is kept in the URL hash (#today, #checkin, #body, #history) so pages can be linked directly.
 
 import { useMemo, useState } from 'react'
 import { TABS } from './data/navigation.js'
@@ -11,6 +12,7 @@ import { evaluate } from './lib/triage.js'
 import AppFrame from './components/layout/AppFrame.jsx'
 import Header from './components/layout/Header.jsx'
 import Logo from './components/layout/Logo.jsx'
+import VoiceAssistant from './components/voice/VoiceAssistant.jsx'
 import Body from './pages/Body.jsx'
 import CheckIn from './pages/CheckIn.jsx'
 import History from './pages/History.jsx'
@@ -162,6 +164,8 @@ export default function App() {
           />
         )}
       </main>
+
+      <VoiceAssistant tab={tab} onNavigate={goTo} />
     </AppFrame>
   )
 }
