@@ -32,3 +32,6 @@ Thumbs.db
 .cache
 .eslintcache
 coverage
+
+# Desktop app builds
+release
