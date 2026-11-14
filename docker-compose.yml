@@ -1,0 +1,10 @@
+# Runs the Strelka website on the server at 127.0.0.1:8110.
+# The server's existing Cloudflare Tunnel sends strelka.health traffic to that port.
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    # Only reachable from the server itself (8080 is taken by phpMyAdmin).
+    ports:
+      - "127.0.0.1:8110:80"

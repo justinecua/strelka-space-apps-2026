@@ -60,3 +60,29 @@ The hazards and risks follow NASA's Human Research Program (the 5 hazards of hum
 ## Disclaimer
 
 The limits in this app are for a prototype. It is not a medical device and not medical advice.
+
+## Running and building
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Runs the website locally |
+| `npm run build` | Builds the website into `dist/` (upload this folder, or point Vercel/Netlify at the repo) |
+| `npm run desktop` | Opens the app in a desktop window |
+| `npm run dist:win` | Builds `release/Strelka.exe` for Windows (no install needed, just run it) |
+| `npm run dist:mac` | Builds `release/Strelka.dmg` for Mac |
+
+The desktop app is the same website wrapped with Electron (see `electron/main.cjs`). It works fully offline.
+
+## Hosting on strelka.health (Docker)
+
+`docker compose` runs one container: nginx serving the built site on `127.0.0.1:8110`. The server's existing Cloudflare Tunnel connects strelka.health to that port, and Cloudflare handles HTTPS.
+
+1. In the Cloudflare tunnel, add public hostnames `strelka.health` and `www.strelka.health`, both with service **HTTP** and URL `localhost:8110`.
+2. On the server:
+
+```bash
+docker compose up -d --build
+curl -I http://localhost:8110   # should say 200 OK
+```
+
+To deploy a new version: `git pull && docker compose up -d --build`.
