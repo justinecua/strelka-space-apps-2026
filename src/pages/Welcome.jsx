@@ -44,6 +44,36 @@ function SectionTitle({ eyebrow, title, text, center = false }) {
 
 // showCta: the top bar's button only appears once the hero's own buttons have scrolled away.
 function TopBar({ links, primaryLabel, onPrimary, theme, onToggleTheme, showCta }) {
+  const [activeSection, setActiveSection] = useState(null)
+
+  useEffect(() => {
+    function updateActiveSection() {
+      if (window.scrollY < 100) {
+        setActiveSection(null)
+        return
+      }
+
+      const activationPoint = window.innerHeight * 0.3
+      let currentSection = null
+
+      links.forEach((link) => {
+        const section = document.getElementById(link.id)
+
+        if (section && section.getBoundingClientRect().top <= activationPoint) {
+          currentSection = link.id
+        }
+      })
+
+      setActiveSection(currentSection)
+    }
+
+    window.addEventListener('scroll', updateActiveSection, { passive: true })
+    updateActiveSection()
+
+    return () => {
+      window.removeEventListener('scroll', updateActiveSection)
+    }
+  }, [links])
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
@@ -51,13 +81,26 @@ function TopBar({ links, primaryLabel, onPrimary, theme, onToggleTheme, showCta 
           <LogoMark className="h-10 w-10" />
           <span className="text-xl">Strelka</span>
         </button>
-
         <nav aria-label="Sections" className="hidden items-center gap-1 md:flex">
-          {links.map((link) => (
-            <button key={link.id} type="button" onClick={() => scrollToSection(link.id)} className="rounded-full px-4 py-2 text-muted transition hover:bg-field hover:text-ink">
-              {link.label}
-            </button>
-          ))}
+          {links.map((link, index) => {
+          const isActive = index === 0 ? showCta && (activeSection === null || activeSection === link.id) : activeSection === link.id 
+
+            return (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => scrollToSection(link.id)}
+                aria-current={isActive ? 'location' : undefined}
+                className={`rounded-full px-4 py-2 transition-all duration-300 ease-in-out ${
+                  isActive
+                    ? 'bg-field text-ink'
+                    : 'text-muted hover:bg-field hover:text-ink'
+                }`}
+              >
+                {link.label}
+              </button>
+            )
+          })}
         </nav>
 
         <div className="flex items-center gap-2">
