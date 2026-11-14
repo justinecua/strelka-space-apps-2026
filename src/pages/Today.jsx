@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { INDICATORS } from '../data/indicators.js'
 import { dayNumberFor, hasCheckedInToday } from '../lib/entries.js'
 import { dueType } from '../lib/schedule.js'
 import { useLayout } from '../lib/layout.js'
 import { isFlagged } from '../lib/status.js'
+import { sendVoice, useVoiceEvent } from '../lib/voiceEvents.js'
 import BloodCard from '../components/today/BloodCard.jsx'
 import CalibrationNotice from '../components/today/CalibrationNotice.jsx'
 import CheckInDueCard from '../components/today/CheckInDueCard.jsx'
@@ -27,6 +28,50 @@ export default function Today({ state, result, mission, calibration, onToggleDon
   const firstLogged = hasEntries && INDICATORS.find((indicator) => result.readings[indicator.id].value != null)
   const [indicatorId, setIndicatorId] = useState(firstFlagged?.id ?? firstLogged?.id ?? 'hr')
   const [layout, setLayout] = useLayout()
+
+  // Voice: "list view" / "grid view".
+  useVoiceEvent('layout', ({ layout: next }) => {
+    if (!hasEntries) return false
+    setLayout(next)
+  })
+
+  // Voice: "open the heart card" while in list view. The cards only exist in grid view, so switch first,
+  // then ask again once they are on the page. (In grid view the card itself answers first.)
+  const pendingCard = useRef(null)
+  useVoiceEvent('open-card', ({ card }) => {
+    if (!hasEntries || layout === 'grid') return false
+    pendingCard.current = card
+    setLayout('grid')
+  })
+  useEffect(() => {
+    if (layout !== 'grid' || !pendingCard.current) return
+    const card = pendingCard.current
+    pendingCard.current = null
+    setTimeout(() => sendVoice('open-card', { card }), 50)
+  }, [layout])
+
+  // Voice: "show the glucose chart". The list view opens its own row; in grid view the Readings card switches.
+  useVoiceEvent('reading', ({ id }) => {
+    if (!hasEntries || layout !== 'grid') return false
+    setIndicatorId(id)
+    setTimeout(() => document.getElementById('readings-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  })
+
+  // Voice: "mark 1 done", "mark all done" for the Do next list.
+  useVoiceEvent('todo', ({ which }) => {
+    const items = result.findings
+    if (items.length === 0) return false
+    const notify = (message) => window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message } }))
+    if (which === 'all') {
+      items.filter((item) => !state.doneIds.includes(item.id)).forEach((item) => onToggleDone(item.id))
+      return notify('All done.')
+    }
+    const item = items[which - 1]
+    if (!item) return notify(`There are only ${items.length} items.`)
+    if (state.doneIds.includes(item.id)) return notify(`“${item.title}” is already done.`)
+    onToggleDone(item.id)
+    notify(`Done: ${item.title}`)
+  })
 
   // The demo has no calendar date, so its streak counts from the latest entry.
   const todayDay = state.isDemo ? null : dayNumberFor(state.profile, state.entries)

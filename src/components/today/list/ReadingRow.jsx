@@ -10,7 +10,7 @@ export default function ReadingRow({ indicator, reading, state, isOpen, onToggle
   const trend = state.entries.slice(-14).map((entry) => entry[indicator.id])
 
   return (
-    <li>
+    <li id={`reading-${indicator.id}`} className="scroll-mt-24">
       <button
         type="button"
         onClick={onToggle}

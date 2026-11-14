@@ -1,9 +1,13 @@
 // A centered pop-up card with a dark backdrop. Closes on the X button, a click outside, or the Escape key.
 
 import { useEffect } from 'react'
+import { useCloseOnVoice } from '../../lib/voiceEvents.js'
 import Icon from './Icon.jsx'
 
 export default function Modal({ title, onClose, children }) {
+  // Saying "close" closes it, the same as Escape.
+  useCloseOnVoice(onClose)
+
   useEffect(() => {
     function handleKey(event) {
       if (event.key === 'Escape') onClose()

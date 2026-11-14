@@ -19,7 +19,7 @@ export default function HistoryRow({ entry, records = [], tier, isOpen, onToggle
   const symptoms = entry.symptoms ?? []
 
   return (
-    <li>
+    <li id={`day-${entry.day}`} className="scroll-mt-24">
       <button
         type="button"
         onClick={onToggle}

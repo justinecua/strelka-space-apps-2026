@@ -1,6 +1,7 @@
 // Sleep bars for the last week, with sleep and mood numbers. The expand button opens sleep, mood, stress and exercise in full screen.
 
 import { useState } from 'react'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import { INDICATOR_BY_ID } from '../../data/indicators.js'
 import { hasAnyValue } from '../../lib/chartData.js'
 import { statusOf } from '../../lib/status.js'
@@ -12,6 +13,8 @@ import StatCard from './StatCard.jsx'
 
 export default function SleepMoodCard({ state, result }) {
   const [open, setOpen] = useState(false)
+  // "open the sleep card" by voice opens it full screen.
+  useVoiceEvent('open-card', ({ card }) => (card === 'sleep' ? setOpen(true) : false))
   const sleepIndicator = INDICATOR_BY_ID.sleep
   const bars = state.entries.slice(-7).map((entry) => ({
     day: entry.day,

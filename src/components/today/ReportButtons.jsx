@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { buildReport } from '../../lib/report.js'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import Button from '../ui/Button.jsx'
 import IconTip from '../ui/IconTip.jsx'
 
@@ -32,6 +33,9 @@ export default function ReportButtons({ state, result, mission }) {
       showMessage('Copy failed, use Download instead')
     }
   }
+
+  // "share report" and "copy report" by voice.
+  useVoiceEvent('report', ({ action }) => (action === 'copy' ? copyReport() : downloadReport()))
 
   return (
     <div className="flex flex-wrap items-center gap-2">

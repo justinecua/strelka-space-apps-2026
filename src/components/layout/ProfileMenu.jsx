@@ -1,5 +1,6 @@
 // The initials button in the header. It opens a small menu with the profile name and the reset option.
 import { useEffect, useRef, useState } from 'react'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import profileDp from '../../assets/avatar/profile_dp-modified.png';
 
 function initialsOf(name) {
@@ -15,6 +16,8 @@ export default function ProfileMenu({ name, isDemo, onReset }) {
   const [open, setOpen] = useState(false)
   const [avatarFailed, setAvatarFailed] = useState(false)
   const menuRef = useRef(null)
+  // "open my profile" by voice.
+  useVoiceEvent('profile', () => setOpen(true))
 
   useEffect(() => {
     setAvatarFailed(false)
