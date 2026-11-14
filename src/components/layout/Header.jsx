@@ -34,18 +34,21 @@ export default function Header({ activeTab, onTabChange, mission, onMissionChang
       </nav>
 
       <div className="flex w-full items-center gap-3 sm:w-auto">
-        <select
-          aria-label="Mission"
-          value={mission.id}
-          onChange={(event) => onMissionChange(event.target.value)}
-          className="min-w-0 flex-1 rounded-full bg-field px-5 py-3 outline-none sm:flex-none focus:ring-2 focus:ring-ink"
-        >
-          {MISSIONS.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            aria-label="Mission"
+            value={mission.id}
+            onChange={(event) => onMissionChange(event.target.value)}
+            className="appearance-none rounded-full bg-field pl-5 pr-12 py-3 outline-none focus:ring-2 focus:ring-ink"
+          >
+            {MISSIONS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-4">⌄</span>
+        </div>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <ProfileMenu name={name} isDemo={isDemo} onReset={onReset} />
       </div>
