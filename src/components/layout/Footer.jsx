@@ -4,7 +4,7 @@ export default function Footer() {
   return (
     <footer className=" text-center">
       <p className="text-sm text-muted sm:text-base">
-        © {year} Strelka Space App. All rights reserved.
+        © {year} Strelka Space . All rights reserved.
       </p>
     </footer>
   )
