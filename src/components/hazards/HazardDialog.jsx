@@ -24,11 +24,11 @@ export default function HazardDialog({ hazard, onClose }) {
       <RiskList risks={risksForHazard(hazard.id)} />
 
       <div className="mt-5 flex flex-col gap-2">
-        <a href={NASA_HAZARDS_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 underline hover:text-muted">
+        <a href={NASA_HAZARDS_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 no-underline hover:text-muted">
           NASA: 5 Hazards of Human Spaceflight
           <Icon name="external" size={16} />
         </a>
-        <a href={NASA_RISKS_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 underline hover:text-muted">
+        <a href={NASA_RISKS_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 no-underline hover:text-muted">
           NASA: Risks of Human Spaceflight
           <Icon name="external" size={16} />
         </a>

@@ -42,9 +42,9 @@ export default function WhyBaselineDialog({ onClose }) {
         <p className="mt-5 text-xs text-muted">
           Sources:{' '}
           {SOURCES.map((source, index) => (
-            <span key={source.url}>
+            <span key={source.url} className="no-underline">
               {index > 0 && ' · '}
-              <a href={source.url} target="_blank" rel="noreferrer" className="underline">
+              <a href={source.url} target="_blank" rel="noreferrer">
                 {source.label}
               </a>
             </span>
