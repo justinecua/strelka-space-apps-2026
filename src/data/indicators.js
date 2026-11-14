@@ -222,6 +222,32 @@ export const INDICATORS = [
     howTo: ['Rate how stressed you felt over the last 24 hours, from 1 (calm) to 5 (overwhelmed).'],
   },
   {
+    id: 'water',
+    source: 'Water log · drink pouch',
+    label: 'Water today',
+    short: 'Water',
+    unit: 'L',
+    step: 0.1,
+    min: 0,
+    max: 6,
+    decimals: 1,
+    region: 'gut',
+    redLow: 1,
+    yellowLow: 2,
+    yellowHigh: null,
+    redHigh: null,
+    tolerance: 0.5,
+    direction: 'low',
+    target: 2,
+    why: 'Staying hydrated keeps blood pressure, kidneys, temperature and concentration stable. Drink at least 2 liters a day.',
+    spaceEffect:
+      'In weightlessness the body senses less thirst and loses fluid volume, so astronauts often drink too little without noticing. Dehydration raises the risk of kidney stones.',
+    howTo: [
+      'Add up every drink pouch or bottle you finished today, in liters (a 500 mL pouch = 0.5 L).',
+      'Record the running total for today. Update it each time you check in.',
+    ],
+  },
+  {
     id: 'exercise',
     source: 'ARED + treadmill log',
     label: 'Exercise today',
@@ -272,4 +298,5 @@ export const CHECKIN_GROUPS = [
   { title: 'Heart', ids: ['hr', 'sbp', 'dbp'] },
   { title: 'Breathing, temperature & metabolism', ids: ['spo2', 'temp', 'glucose'] },
   { title: 'Sleep, mind & activity', ids: ['sleep', 'mood', 'stress', 'exercise'] },
+  { title: 'Breathing, temperature & metabolism', ids: ['spo2', 'temp', 'glucose', 'water'] },
 ]
