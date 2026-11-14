@@ -68,7 +68,7 @@ export default function BaselineStep({ onBack, onNext }) {
       )}
 
       <div className="flex justify-between">
-        <button type="button" onClick={onBack} className="underline">
+        <button type="button" onClick={onBack} className="no-underline">
           Back
         </button>
         <Button type="submit">Next: first check-in</Button>

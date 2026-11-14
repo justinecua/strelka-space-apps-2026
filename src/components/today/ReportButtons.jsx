@@ -42,10 +42,22 @@ export default function ReportButtons({ state, result, mission }) {
       <Button icon="download" onClick={downloadReport} className="whitespace-nowrap">
         Share report
       </Button>
-      <IconTip icon="copy" title="Copy report" text="Paste it into a message to your crew medic." onClick={copyReport} align="right" className="border border-ink/30" />
-      <span className="text-sm text-muted" role="status">
-        {message}
-      </span>
+
+      <div className="flex w-fit shrink-0 items-center rounded-[100px] border border-ink/30">
+        <IconTip
+          icon="copy"
+          title="Copy report"
+          text="Paste it into a message to your crew medic."
+          onClick={copyReport}
+          align="right"
+        />
+
+        {message?.trim() && (
+          <span className="pr-4 text-sm text-muted whitespace-nowrap" role="status">
+            {message}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
