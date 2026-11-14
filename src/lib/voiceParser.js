@@ -47,6 +47,11 @@ export function normalize(text) {
       /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g,
       (word) => String(UNITS[word] ?? TENS[word])
     )
+    // "1 hundred 18" → 118, "1 hundred and 5" → 105, "2 hundred" → 200 (on-device speech writes numbers as words).
+    .replace(/\b([1-9])\s+hundred(?:\s+and)?\s+(\d{1,2})\b/g, (_, hundreds, rest) => String(Number(hundreds) * 100 + Number(rest)))
+    .replace(/\b([1-9])\s+hundred\b/g, (_, hundreds) => String(Number(hundreds) * 100))
+    .replace(/\ba hundred(?:\s+and)?\s+(\d{1,2})\b/g, (_, rest) => String(100 + Number(rest)))
+    .replace(/\ba hundred\b/g, '100')
     .replace(/(\d+)\s+point\s+(\d)/g, '$1.$2')
 }
 
@@ -156,7 +161,7 @@ function extractDuration(text, pattern) {
 
 // Main voice parser.
 export function parseVoice(transcript) {
-  const text = normalize(transcript)
+  const text = normalize(String(transcript ?? '').replace(/\b(go|back|switch|scroll|jump)\s+(two|too)\b/gi, '$1 to'))
   const values = {}
   const symptoms = []
 
