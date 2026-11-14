@@ -1,4 +1,4 @@
-// One past check-in: day, date, result and a few key numbers. Tap it to see every value, then edit or delete it.
+// One past check-in: day, date, result and a few key numbers. Tap it to see every value, then edit, export or delete it.
 
 import { INDICATORS, INDICATOR_BY_ID, SYMPTOM_BY_ID } from '../../data/indicators.js'
 import { formatDate } from '../../lib/entries.js'
@@ -11,7 +11,7 @@ function summary(entry) {
   return `HR ${show('hr')} · BP ${show('sbp')}/${show('dbp')} · Sleep ${show('sleep')} h`
 }
 
-export default function HistoryRow({ entry, tier, isOpen, onToggle, onEdit, onDelete }) {
+export default function HistoryRow({ entry, tier, isOpen, onToggle, onEdit, onExport, onDelete }) {
   const date = formatDate(entry.loggedOn)
   const symptoms = entry.symptoms ?? []
 
@@ -61,6 +61,9 @@ export default function HistoryRow({ entry, tier, isOpen, onToggle, onEdit, onDe
           <div className="flex flex-wrap gap-2">
             <Button icon="edit" onClick={onEdit}>
               Edit
+            </Button>
+            <Button variant="light" onClick={onExport}>
+              Export PDF
             </Button>
             <Button icon="trash" variant="outline" onClick={onDelete} className="text-danger">
               Delete

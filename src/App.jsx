@@ -1,11 +1,13 @@
 // Root component. New users see Welcome → Setup → first check-in; after that, the tabs
-// (Today, Check-in, Body, History) with a floating voice assistant on every page.
-// The tab is kept in the URL hash (#today, #checkin, #body, #history) so pages can be linked directly.
+// (Today, Check-in, Body, Relax, History) with a floating voice assistant on every page.
+// The tab is kept in the URL hash (#today, #checkin, #body, #relax, #history) so pages can be linked directly.
 
 import { useMemo, useState } from 'react'
 import { TABS } from './data/navigation.js'
 import { MISSIONS, MISSION_BY_ID } from './data/missions.js'
+import { REGIONS } from './data/regions.js'
 import { getBaseline } from './lib/baseline.js'
+import { isHighStress } from './lib/stress.js'
 import { useStore } from './lib/store.js'
 import { useTheme } from './lib/theme.js'
 import { evaluate } from './lib/triage.js'
@@ -16,6 +18,7 @@ import VoiceAssistant from './components/voice/VoiceAssistant.jsx'
 import Body from './pages/Body.jsx'
 import CheckIn from './pages/CheckIn.jsx'
 import History from './pages/History.jsx'
+import Relax from './pages/Relax.jsx'
 import Setup from './pages/Setup.jsx'
 import Today from './pages/Today.jsx'
 import Welcome from './pages/Welcome.jsx'
@@ -27,7 +30,7 @@ function tabFromUrl() {
 
 export default function App() {
   const [savedState, actions] = useStore()
-  const [theme, toggleTheme] = useTheme()
+  const [theme, toggleTheme, chooseTheme] = useTheme()
   const [tab, setTab] = useState(tabFromUrl)
   const [showSetup, setShowSetup] = useState(false)
   const [showLanding, setShowLanding] = useState(false)
@@ -44,6 +47,9 @@ export default function App() {
     () => evaluate(savedState.entries, calibration.values, mission),
     [savedState.entries, calibration.values, mission],
   )
+
+  // The red dot on the Relax tab and the Relax page message use the latest stress reading (4 or 5 = high).
+  const highStress = isHighStress(state.entries.at(-1)?.stress)
 
   function goTo(nextTab) {
     setEditing(null)
@@ -73,10 +79,58 @@ export default function App() {
     goTo('today')
   }
 
-  // Open the check-in form for a past day, from the History page.
+  // Open the check-in form for a past day, from the History page or by voice.
   function editDay(target) {
     goTo('checkin')
     setEditing(target)
+  }
+
+  // "edit day 5" by voice: opens the same form as the Edit button on History.
+  function voiceEditDay(day) {
+    const entry = state.entries.find((item) => item.day === day)
+    if (!entry) {
+      window.alert(`There is no check-in for day ${day} yet. Use "add missed day" on the History page.`)
+      return
+    }
+    editDay({ day, loggedOn: entry.loggedOn })
+  }
+
+  // "delete day 5" by voice: goes to History and asks for confirmation before deleting.
+  function voiceDeleteDay(day) {
+    if (!state.entries.some((item) => item.day === day)) {
+      window.alert(`There is no check-in for day ${day}.`)
+      return
+    }
+    goTo('history')
+    if (window.confirm(`Delete the check-in for day ${day}? This can't be undone.`)) {
+      actions.deleteEntry(day)
+    }
+  }
+
+  // "show brain" or "go to eyes" by voice: opens the Body page on that region.
+  function voiceRegion(key) {
+    const region = REGIONS.find((item) => [item.id, item.label, item.name].filter(Boolean).join(' ').toLowerCase().includes(key))
+    if (!region) {
+      window.alert(`Body region not found: ${key}`)
+      return
+    }
+    setRegionId(region.id)
+    goTo('body')
+  }
+
+  // "switch to Mars surface" by voice: changes the mission, the same as the header dropdown.
+  function voiceMission(key) {
+    const next = MISSIONS.find((item) => item.name.toLowerCase().includes(key))
+    if (!next) {
+      window.alert(`Mission not found: ${key}`)
+      return
+    }
+    actions.setMission(next.id)
+  }
+
+  // "dark mode" or "light mode" by voice: sets that exact mode.
+  function voiceTheme(wanted) {
+    chooseTheme(wanted)
   }
 
   function handleReset() {
@@ -130,6 +184,7 @@ export default function App() {
         onLogoClick={() => setShowLanding(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
+        highStress={highStress}
       />
 
       <main className="mt-10 flex-1 pb-4">
@@ -155,9 +210,11 @@ export default function App() {
         {tab === 'body' && (
           <Body result={result} regionId={regionId} onSelectRegion={setRegionId} onStartCheckIn={() => goTo('checkin')} />
         )}
+        {tab === 'relax' && <Relax highStress={highStress} />}
         {tab === 'history' && (
           <History
             state={state}
+            mission={mission}
             onEdit={(day) => editDay({ day, loggedOn: state.entries.find((entry) => entry.day === day)?.loggedOn })}
             onAdd={editDay}
             onDelete={actions.deleteEntry}
@@ -165,7 +222,15 @@ export default function App() {
         )}
       </main>
 
-      <VoiceAssistant tab={tab} onNavigate={goTo} />
+      <VoiceAssistant
+        tab={tab}
+        onNavigate={goTo}
+        onEditDay={voiceEditDay}
+        onDeleteDay={voiceDeleteDay}
+        onRegion={voiceRegion}
+        onMission={voiceMission}
+        onTheme={voiceTheme}
+      />
     </AppFrame>
   )
 }

@@ -27,9 +27,15 @@ export function useTheme() {
     }
   }, [theme])
 
+  // Switches between light and dark (used by the round button).
   function toggleTheme() {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
+    setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
   }
 
-  return [theme, toggleTheme]
+  // Sets an exact mode (used by voice: "dark mode" always means dark, even if it is already dark).
+  function chooseTheme(next) {
+    if (next === 'dark' || next === 'light') setTheme(next)
+  }
+
+  return [theme, toggleTheme, chooseTheme]
 }
