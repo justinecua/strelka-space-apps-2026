@@ -37,7 +37,7 @@ export default function Header({ activeTab, onTabChange, mission, onMissionChang
         </ul>
       </nav>
 
-            <div className="flex w-full items-center gap-3 sm:w-auto">
+           <div className="flex w-full items-center gap-3 sm:w-auto">
         <div className="relative min-w-0 flex-1 sm:flex-none">
           <select
             aria-label="Mission"
@@ -51,6 +51,7 @@ export default function Header({ activeTab, onTabChange, mission, onMissionChang
               </option>
             ))}
           </select>
+
           <Icon
             name="chevron"
             size={16}
