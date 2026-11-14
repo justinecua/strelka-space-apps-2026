@@ -22,6 +22,7 @@ import Relax from './pages/Relax.jsx'
 import Setup from './pages/Setup.jsx'
 import Today from './pages/Today.jsx'
 import Welcome from './pages/Welcome.jsx'
+import Footer from './components/layout/Footer.jsx'
 
 
 function tabFromUrl() {
@@ -232,6 +233,7 @@ export default function App() {
         onMission={voiceMission}
         onTheme={voiceTheme}
       />
+      <Footer />
     </AppFrame>
   )
 }

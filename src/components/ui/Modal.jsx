@@ -18,16 +18,18 @@ export default function Modal({ title, onClose, children }) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-[28px] bg-white p-8 text-left text-ink"
+        className="max-h-[90dvh] w-full max-w-lg overflow-hidden rounded-[28px] bg-white text-left text-ink"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="text-3xl">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-field">
-            <Icon name="close" size={20} />
-          </button>
+        <div className="scrollbar-thin-custom max-h-[90dvh] overflow-y-auto px-8 py-8 pr-5">
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="text-3xl">{title}</h2>
+            <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-field">
+              <Icon name="close" size={20} />
+            </button>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
     </div>
   )
