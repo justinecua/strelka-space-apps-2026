@@ -1,9 +1,19 @@
-// The middle of the top bar: a greeting, then small status chips for the mission day, the mission
-// clock (GMT, the time zone the space station runs on) and how long a message takes to reach Earth.
+// The middle of the top bar: a greeting, then small status chips for the mission day, Eastern and
+// Philippine time, and how long a message takes to reach Earth.
 // Wide screens only; phones keep the top bar short.
 
 import { greetingFor, useNow } from '../../lib/useNow.js'
 import Icon from '../ui/Icon.jsx'
+
+// Two ground clocks: US Eastern time and Philippine time.
+const CLOCKS = [
+  { zone: 'America/New_York', short: 'ET', name: 'Eastern time' },
+  { zone: 'Asia/Manila', short: 'PH', name: 'Philippine time' },
+]
+
+function timeIn(now, timeZone) {
+  return now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone })
+}
 
 function Chip({ icon, label, children }) {
   return (
@@ -18,7 +28,6 @@ function Chip({ icon, label, children }) {
 export default function HeaderStatus({ name, day, mission }) {
   const now = useNow(30_000)
   const firstName = name?.split(' ')[0]
-  const gmt = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
 
   return (
     <div className="hidden min-w-0 flex-1 items-center gap-6 lg:flex">
@@ -34,18 +43,12 @@ export default function HeaderStatus({ name, day, mission }) {
             Day {day}
           </Chip>
         )}
-        <Chip
-          label="Mission time"
-          icon={
-            <span className="relative flex h-2 w-2" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-good opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-good" />
-            </span>
-          }
-        >
-          <span className="tabular-nums">{gmt}</span>
-          <span className="text-muted">GMT</span>
-        </Chip>
+        {CLOCKS.map((clock) => (
+          <Chip key={clock.zone} label={clock.name}>
+            <span className="text-muted">{clock.short}</span>
+            <span className="tabular-nums">{timeIn(now, clock.zone)}</span>
+          </Chip>
+        ))}
         <Chip label="Signal delay to Earth" icon={<Icon name="earth" size={16} className="text-muted" />}>
           <span className="text-muted">Earth</span> {mission.delayLabel}
         </Chip>
