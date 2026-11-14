@@ -2,9 +2,10 @@
 
 import StressBreak from '../components/today/StressBreak.jsx'
 
-export default function Relax({ highStress }) {
+export default function Relax({ highStress = false }) {
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    // Same outer width as the History page, so the heading stays in the same place when you switch tabs.
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-5xl sm:text-6xl">Relax</h1>
         <p className="mt-2 text-muted">
@@ -13,7 +14,9 @@ export default function Relax({ highStress }) {
             : 'Take a short breathing break whenever you need one.'}
         </p>
       </div>
-      <StressBreak />
+      <div className="max-w-2xl">
+        <StressBreak />
+      </div>
     </div>
   )
 }

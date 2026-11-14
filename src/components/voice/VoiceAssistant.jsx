@@ -34,10 +34,29 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
   const [caption, setCaption] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
+  const [micReady, setMicReady] = useState(false)
   const recognition = useRef(null)
   const wantOn = useRef(false)
   // The speech engine keeps its first callbacks, so it reads the newest props from here.
   const latest = useRef({})
+
+  // Mic stays hidden after a refresh, then fades in.
+  useEffect(() => {
+    const timer = setTimeout(() => setMicReady(true), 1500) // 1500 = 1.5 seconds
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Hides the page scrollbar (scrolling with wheel, touch and keyboard still works).
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.setAttribute('data-hide-scrollbar', '')
+    style.textContent = `
+      html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
+      html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+    `
+    document.head.appendChild(style)
+    return () => style.remove()
+  }, [])
 
   useEffect(() => {
     latest.current = { tab, onNavigate, onEditDay, onDeleteDay, onRegion, onMission, onTheme }
@@ -210,7 +229,13 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
         : 'Say “go to body”, “edit day 1”, “dark mode” or “export PDF”.'
 
   return (
-    <div className="fixed left-5 z-50 flex flex-col items-start gap-3" style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}>
+    <div
+      className="fixed z-50 flex flex-col items-start gap-3"
+      style={{
+        left: 'max(4.25rem, calc((100vw - 1800px) / 2 + 47px))',
+        bottom: 'calc(3.25rem + env(safe-area-inset-bottom, 0px) + 4.75rem)',
+      }}
+    >
       {(on || error) && (
         <div role="status" aria-live="polite" className="fade-in max-w-xs rounded-[24px] border border-line bg-white p-4 shadow-xl">
           {error ? (
@@ -244,7 +269,13 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
         onClick={on ? turnOff : turnOn}
         aria-pressed={on}
         aria-label={on ? 'Turn voice commands off' : 'Turn voice commands on'}
-        className="relative grid h-16 w-16 place-items-center rounded-full bg-ink text-white shadow-xl outline-none focus-visible:ring-4 focus-visible:ring-good"
+        className="fixed z-50 grid h-16 w-16 place-items-center rounded-full bg-ink text-white shadow-xl outline-none transition-opacity duration-500 focus-visible:ring-4 focus-visible:ring-good"
+        style={{
+          left: 'max(4.25rem, calc((100vw - 1800px) / 2 + 47px))',
+          bottom: 'calc(3.25rem + env(safe-area-inset-bottom, 0px))',
+          opacity: micReady ? 1 : 0,
+          pointerEvents: micReady ? 'auto' : 'none',
+        }}
       >
         {on && <span className="absolute inset-0 animate-ping rounded-full bg-good/40" aria-hidden="true" />}
         <svg viewBox="0 0 24 24" className="relative h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
