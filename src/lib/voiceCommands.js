@@ -168,6 +168,19 @@ export function parseCommand(spoken) {
     return { type: 'cancel' }
   }
 
+  // Simulation mode on the Check-in page: Strelka asks one question at a time.
+  if (/^(start|enable|turn on|begin|open|use)( the)? (simulation|guided)( mode| check[\s-]?in)?$|^(simulation|guided)( mode)? on$/.test(text)) {
+    return { type: 'guide', action: 'on' }
+  }
+  if (/^(stop|disable|turn off|end|exit|close|quit)( the)? (simulation|guided)( mode| check[\s-]?in)?$|^(simulation|guided)( mode)? off$|^show( me)?( the)? (whole|full) form$/.test(text)) {
+    return { type: 'guide', action: 'off' }
+  }
+  if (/^(next|next one|next question|skip|skip it|skip this( one| question)?|skip question|move on|pass)$/.test(text)) return { type: 'guide', action: 'next' }
+  if (/^(previous|previous question|last question|go back a question|back a question|question back)$/.test(text)) return { type: 'guide', action: 'previous' }
+  if (/^(repeat|repeat that|repeat it|repeat the question|say (that|it) again|again|what was the question|what'?s the question|pardon)$/.test(text)) {
+    return { type: 'guide', action: 'repeat' }
+  }
+
   // Back: "go back", "back", "previous page".
   if (/^(go back|back|previous page|last page|return)$/.test(text)) return { type: 'back' }
 

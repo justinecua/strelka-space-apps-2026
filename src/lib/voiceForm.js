@@ -3,6 +3,7 @@
 // and free text (where it hurts, what happened, notes). Text keeps the words as spoken.
 
 import { allFields } from '../data/checkinTypes.js'
+import { normalize } from './voiceParser.js'
 
 const EXERCISE_WORDS = [
   ['treadmill', /\btreadmill\b|\brun(?:ning)?\b|\bjog/],
@@ -31,7 +32,8 @@ function firstMatch(text, table) {
 
 export function dictateFields(type, sentence, current = {}) {
   if (!sentence) return {}
-  const text = sentence.toLowerCase()
+  // Numbers as digits: on-device speech writes them as words ("thirty minutes", "severity three").
+  const text = normalize(sentence)
   const keys = new Set(allFields(type).map((field) => field.key))
   const filled = {}
 

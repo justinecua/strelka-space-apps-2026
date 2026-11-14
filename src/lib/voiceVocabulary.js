@@ -28,6 +28,8 @@ const COMMAND_WORDS = `
   mark tick complete finish finished done with item task number first second third as
   day days edit fix update correct delete remove erase add log fill create missed skipped more older earlier load
   export pdf whole everything
+  click tap press select choose pick button
+  simulation guided next skip previous question repeat again pass none nothing fine good okay whole full
   morning post exercise workout before sleep bedtime evening night symptom symptoms
   clear empty form fields review submit
   breathing breath breathe break exercise begin take
@@ -83,7 +85,7 @@ export function numberWords(n) {
   return `${ONES[Math.floor(n / 100)]} hundred${n % 100 ? ` ${numberWords(n % 100)}` : ''}`
 }
 
-function spoken(phrase) {
+export function spoken(phrase) {
   return phrase
     .toLowerCase()
     .replace(/\d+/g, (digits) => numberWords(Number(digits)))

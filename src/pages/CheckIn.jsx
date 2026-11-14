@@ -14,7 +14,7 @@ function introText(isFirst, alreadyToday, editing) {
   if (editing) return 'Changes here update your history, charts and today\'s result.'
   if (isFirst) return 'Measure everything and fill in every field. Symptoms are optional.'
   if (alreadyToday) return "You already checked in today. Saving will update today's entry."
-  return 'Takes about 2 minutes. Fill in every field. Your usual numbers are shown in grey as a guide.'
+  return 'Fill in every field. Your usual numbers are shown in grey as a guide.'
 }
 
 // editing = { day, loggedOn } when fixing or adding a past day from History; null for today's check-in.

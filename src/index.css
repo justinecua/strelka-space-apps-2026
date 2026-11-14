@@ -70,6 +70,178 @@ body {
   animation: fade-in 0.3s ease-out both;
 }
 
+/* ---- Motion ----
+   Small, quick animations that help you follow what changed. All of them switch off with reduced motion. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* A page fades and rises in when you switch tabs. */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.page-enter {
+  animation: page-enter 0.45s var(--ease-out) both;
+}
+
+/* Cards rise in one after another. The delay follows the card's position among its siblings. */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+.card-enter {
+  animation: card-enter 0.55s var(--ease-out) both;
+}
+.card-enter:nth-child(2) { animation-delay: 60ms; }
+.card-enter:nth-child(3) { animation-delay: 120ms; }
+.card-enter:nth-child(4) { animation-delay: 180ms; }
+.card-enter:nth-child(5) { animation-delay: 240ms; }
+.card-enter:nth-child(6) { animation-delay: 300ms; }
+.card-enter:nth-child(n + 7) { animation-delay: 340ms; }
+
+/* List rows slide in one after another: put "stagger" on the list. */
+@keyframes row-enter {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.stagger > * {
+  animation: row-enter 0.4s var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 35ms);
+}
+
+/* Small squares and dots pop in. */
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: none; }
+}
+.pop-in {
+  animation: pop-in 0.35s var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 12ms);
+}
+
+/* Content that swaps in place, like the body region details. */
+@keyframes swap-in {
+  from { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.swap-in {
+  animation: swap-in 0.35s var(--ease-out) both;
+}
+
+/* Body markers grow a little on hover. */
+.hotspot-marker {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.2s var(--ease-spring);
+}
+.hotspot:hover .hotspot-marker,
+.hotspot:focus-visible .hotspot-marker {
+  transform: scale(1.18);
+}
+
+/* ---- Landing page ---- */
+
+/* Hero: each piece rises in after the one before. --d sets the delay. */
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(28px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.hero-in {
+  animation: hero-in 0.9s var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* The hero logo lands, then floats gently. */
+@keyframes logo-land {
+  from { opacity: 0; transform: translateY(-24px) scale(0.85) rotate(-8deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.logo-land {
+  animation: logo-land 1s var(--ease-spring) both, float 6s ease-in-out 1s infinite;
+}
+
+/* The starfield drifts slowly upward. */
+@keyframes star-drift {
+  from { transform: translateY(0); }
+  to { transform: translateY(-40px); }
+}
+.star-drift {
+  animation: star-drift 30s ease-in-out infinite alternate;
+}
+
+/* Scroll reveal: elements with data-reveal fade up when they enter the screen.
+   --i staggers items in a row. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  /* Only the reveal is staggered; hover effects (translate, shadow, color) respond right away. */
+  transition:
+    opacity 0.8s var(--ease-out),
+    transform 0.8s var(--ease-out),
+    translate 0.3s var(--ease-out),
+    box-shadow 0.3s var(--ease-out),
+    background-color 0.3s ease;
+  transition-delay: calc(var(--i, 0) * 90ms), calc(var(--i, 0) * 90ms), 0s, 0s, 0s;
+}
+[data-reveal][data-visible] {
+  opacity: 1;
+  transform: none;
+}
+/* The story picture starts a little zoomed in and settles. */
+[data-reveal='zoom'] img {
+  transform: scale(1.08);
+  transition: transform 1.6s var(--ease-out);
+}
+[data-reveal='zoom'][data-visible] img {
+  transform: none;
+}
+/* Timeline lines draw from left to right. */
+.draw-line {
+  background: linear-gradient(var(--color-line), var(--color-line)) left top / 0% 1px no-repeat;
+  transition: background-size 1s var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 90ms + 200ms);
+}
+[data-visible] .draw-line,
+.draw-line[data-visible] {
+  background-size: 100% 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-in,
+  .logo-land,
+  .star-drift {
+    animation: none;
+  }
+  [data-reveal],
+  [data-reveal='zoom'] img {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .draw-line {
+    background-size: 100% 1px;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .card-enter,
+  .stagger > *,
+  .pop-in,
+  .swap-in,
+  .fade-in {
+    animation: none;
+  }
+  .hotspot-marker { transition: none; }
+}
+
 
 @layer utilities {
   .scrollbar-thin-custom {
@@ -105,4 +277,12 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .star { animation: none; }
+}
+
+/* Light/dark switch (lib/theme.js): the new mode is revealed in a growing circle, so turn off the
+   browser's default cross-fade between the old and new screen. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }

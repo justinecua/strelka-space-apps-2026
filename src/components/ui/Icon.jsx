@@ -6,11 +6,13 @@ import {
   ArrowSquareOut,
   ArrowsOutSimple,
   Bone,
+  BookOpenText,
   Brain,
   Carrot,
   ClipboardText,
   ClockCounterClockwise,
   Check,
+  CheckCircle,
   CaretDown,
   Copy,
   DownloadSimple,
@@ -19,7 +21,9 @@ import {
   GlobeHemisphereWest,
   Eye,
   Heart,
+  Heartbeat,
   Info,
+  ListChecks,
   Microphone,
   Moon,
   PersonSimple,
@@ -38,6 +42,7 @@ import {
   Trash,
   User,
   UsersThree,
+  WarningCircle,
   WifiSlash,
   Wind,
   WindowsLogo,
@@ -87,10 +92,15 @@ const ICONS = {
   mic: Microphone,
   offline: WifiSlash,
   arrowDown: ArrowDown,
+  book: BookOpenText,
+  checkCircle: CheckCircle,
+  pulse: Heartbeat,
+  tasks: ListChecks,
+  warning: WarningCircle,
 }
 
-export default function Icon({ name, size = 20, weight = 'light', className = '' }) {
+export default function Icon({ name, size = 20, weight = 'light', className = '', ...rest }) {
   const Component = ICONS[name]
   if (!Component) return null
-  return <Component size={size} weight={weight} className={className} aria-hidden="true" />
+  return <Component size={size} weight={weight} className={className} aria-hidden="true" {...rest} />
 }

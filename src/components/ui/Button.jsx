@@ -12,7 +12,7 @@ export default function Button({ onClick, icon, type = 'button', variant = 'dark
     <button
       type={type}
       onClick={onClick}
-      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 transition ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 transition duration-200 active:scale-[0.96] ${VARIANTS[variant]} ${className}`}
     >
       {icon && <Icon name={icon} size={18} />}
       {children}

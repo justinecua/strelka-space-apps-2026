@@ -28,15 +28,44 @@ function detectOs() {
 
 const IN_DESKTOP_APP = typeof navigator !== 'undefined' && /Electron/.test(navigator.userAgent)
 
+// Scroll reveal: marks every [data-reveal] element with data-visible once it scrolls into view.
+// Without IntersectionObserver everything is shown straight away.
+function useReveal() {
+  useEffect(() => {
+    const items = document.querySelectorAll('[data-reveal]')
+    if (!('IntersectionObserver' in window)) {
+      items.forEach((item) => item.setAttribute('data-visible', ''))
+      return undefined
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.setAttribute('data-visible', '')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { rootMargin: '0px 0px -10% 0px', threshold: 0.15 },
+    )
+    items.forEach((item) => observer.observe(item))
+    return () => observer.disconnect()
+  }, [])
+}
+
 function scrollToSection(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-function SectionTitle({ eyebrow, title, text, center = false }) {
+// badge: a small label beside the title, like the team's name.
+function SectionTitle({ eyebrow, title, text, badge, center = false }) {
   return (
-    <div className={center ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
+    <div data-reveal className={center ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
       <p className="text-sm tracking-wide text-muted uppercase">{eyebrow}</p>
-      <h2 className="mt-3 text-4xl leading-tight sm:text-5xl">{title}</h2>
+      <div className={`mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 ${center ? 'justify-center' : ''}`}>
+        <h2 className="text-4xl leading-tight sm:text-5xl">{title}</h2>
+        {badge && <span className="rounded-full bg-field px-3.5 py-1.5 text-sm text-muted ring-1 ring-ink/10">{badge}</span>}
+      </div>
       {text && <p className="mt-4 text-lg text-muted">{text}</p>}
     </div>
   )
@@ -155,6 +184,7 @@ const STARS = makeStars(130)
 function Starfield() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div className="star-drift absolute inset-x-0 top-0 -bottom-12">
       {STARS.map((star, index) => (
         <span
           key={index}
@@ -170,6 +200,7 @@ function Starfield() {
           }}
         />
       ))}
+      </div>
       {/* Fades the stars out toward the edges of the hero. */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,var(--color-white)_95%)]" />
     </div>
@@ -183,16 +214,19 @@ function Hero({ primaryLabel, onPrimary, onDemo, os, showDownloads, buttonsRef }
     <section className="relative isolate overflow-hidden">
       <Starfield />
       <div className="relative mx-auto flex max-w-6xl flex-col items-center px-5 pt-16 pb-24 text-center sm:px-8 sm:pt-20">
-        <LogoMark className="h-28 w-28 sm:h-36 sm:w-36" />
+        <LogoMark className="logo-land h-28 w-28 sm:h-36 sm:w-36" />
 
         <h1 className="mt-10 text-6xl leading-[0.98] tracking-tight sm:text-8xl lg:text-[7.5rem]">
-          Stay healthy
-          <br />
-          in space
+          <span className="hero-in block" style={{ '--d': '150ms' }}>
+            Stay healthy
+          </span>
+          <span className="hero-in block" style={{ '--d': '300ms' }}>
+            in space
+          </span>
         </h1>
-        <p className="mt-6 max-w-md text-xl text-muted">A 2-minute daily health check for astronauts.</p>
+        <p className="hero-in mt-6 max-w-md text-xl text-muted" style={{ '--d': '480ms' }}>A daily health check for astronauts.</p>
 
-        <div ref={buttonsRef} className="mt-10 flex flex-wrap justify-center gap-3">
+        <div ref={buttonsRef} className="hero-in mt-10 flex flex-wrap justify-center gap-3" style={{ '--d': '620ms' }}>
           <Button onClick={onPrimary} className="px-8 py-3.5 text-lg">
             {primaryLabel}
           </Button>
@@ -204,7 +238,7 @@ function Hero({ primaryLabel, onPrimary, onDemo, os, showDownloads, buttonsRef }
         </div>
 
         {showDownloads && (
-          <p className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-muted">
+          <p className="hero-in mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-muted" style={{ '--d': '760ms' }}>
             <span>Desktop app:</span>
             {ordered.map((item) => (
               <a key={item.id} href={item.url} className="flex items-center gap-1.5 text-ink underline-offset-4 hover:underline">
@@ -225,9 +259,14 @@ function Features() {
       <SectionTitle eyebrow="Features" title="Everything you need, nothing you don't" text="Built for long missions, where the nearest doctor can be minutes or hours away." />
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((feature) => (
-          <article key={feature.title} className={`flex flex-col gap-10 rounded-[28px] p-7 ${TONES[feature.tone]}`}>
-            <span className={`grid h-12 w-12 place-items-center rounded-full ${feature.tone === 'dark' ? 'bg-white/15' : 'bg-white'}`}>
+        {FEATURES.map((feature, index) => (
+          <article
+            key={feature.title}
+            data-reveal
+            style={{ '--i': index % 3 }}
+            className={`group flex flex-col gap-10 rounded-[28px] p-7 hover:-translate-y-1 hover:shadow-[0_18px_40px_-20px_rgba(0,0,0,0.35)] ${TONES[feature.tone]}`}
+          >
+            <span className={`grid h-12 w-12 place-items-center rounded-full transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${feature.tone === 'dark' ? 'bg-white/15' : 'bg-white'}`}>
               <Icon name={feature.icon} size={22} />
             </span>
             <div>
@@ -247,7 +286,7 @@ function HowItWorks() {
       <SectionTitle eyebrow="How it works" title="Three steps, every day" />
       <ol className="mt-12 grid gap-8 sm:grid-cols-3">
         {STEPS.map((step, index) => (
-          <li key={step.title} className="border-t border-line pt-6">
+          <li key={step.title} data-reveal style={{ '--i': index }} className="draw-line pt-6">
             <span className="text-5xl font-light text-muted tabular-nums">0{index + 1}</span>
             <h3 className="mt-4 text-xl">{step.title}</h3>
             <p className="mt-2 text-muted">{step.text}</p>
@@ -262,7 +301,7 @@ function Story() {
   return (
     <section id="story" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20 sm:px-8">
       {/* The picture leads, with the title on a dark fade at the bottom. Colors are fixed so they read on the photo in both themes. */}
-      <figure className="relative overflow-hidden rounded-[40px] bg-[#0b0c0d]">
+      <figure data-reveal="zoom" className="relative overflow-hidden rounded-[40px] bg-[#0b0c0d]">
         <img
           src={belkaAndStrelka}
           alt="Illustration of two dogs in space helmets and suits: a white dog on the left and a brown and white dog on the right"
@@ -281,7 +320,7 @@ function Story() {
         </div>
       </figure>
 
-      <div className="mt-14 max-w-4xl">
+      <div data-reveal className="mt-14 max-w-4xl">
         <p className="text-3xl leading-snug sm:text-4xl">
           Strelka (Стрелка) means <span className="text-good-dark">“little arrow”</span> in Russian.
         </p>
@@ -292,9 +331,9 @@ function Story() {
       </div>
 
       <ol className="mt-14 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-        {STORY.map((moment) => (
-          <li key={moment.when} className="relative border-t border-line pt-6">
-            <span className="absolute -top-[5px] left-0 h-2.5 w-2.5 rounded-full bg-good" aria-hidden="true" />
+        {STORY.map((moment, index) => (
+          <li key={moment.when} data-reveal style={{ '--i': index }} className="draw-line relative pt-6">
+            <span className="absolute -top-[4.5px] left-0 h-2.5 w-2.5 rounded-full bg-good" aria-hidden="true" />
             <p className="text-sm text-muted">{moment.when}</p>
             <p className="mt-2 leading-relaxed">{moment.text}</p>
           </li>
@@ -310,7 +349,7 @@ function Team() {
   return (
     <section id="team" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20 sm:px-8">
       <div className="flex flex-wrap items-end justify-between gap-6">
-        <SectionTitle eyebrow="About" title="The team" text="Strelka is open source, built for NASA Space Apps 2026 by four developers." />
+        <SectionTitle eyebrow="About" title="The team" badge="Team 404 Vision" text="Strelka is open source, built for NASA Space Apps 2026 by four developers." />
         <a
           href={REPO_URL}
           target="_blank"
@@ -323,15 +362,15 @@ function Team() {
       </div>
 
       <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {TEAM.map((person) => (
-          <li key={person.login}>
+        {TEAM.map((person, index) => (
+          <li key={person.login} data-reveal style={{ '--i': index }}>
             <a
               href={`https://github.com/${person.login}`}
               target="_blank"
               rel="noreferrer"
-              className="group flex h-full flex-col items-start gap-8 rounded-[28px] bg-field p-6 transition hover:bg-mint"
+              className="group flex h-full flex-col items-start gap-8 rounded-[28px] bg-field p-6 transition duration-300 hover:-translate-y-1 hover:bg-mint"
             >
-              <img src={person.avatar} alt="" width="64" height="64" loading="lazy" className="h-16 w-16 rounded-full object-cover" />
+              <img src={person.avatar} alt="" width="64" height="64" loading="lazy" className="h-16 w-16 rounded-full object-cover transition-transform duration-300 group-hover:scale-110" />
               <span className="min-w-0">
                 <span className="block truncate text-lg">{person.name}</span>
                 <span className="flex items-center gap-1.5 truncate text-sm text-muted group-hover:text-ink">
@@ -352,7 +391,7 @@ function Download({ os, primaryLabel, onPrimary }) {
   const others = DOWNLOADS.filter((item) => item.id !== main.id)
 
   return (
-    <section id="download" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-24 text-center sm:px-8">
+    <section id="download" data-reveal className="mx-auto max-w-6xl scroll-mt-24 px-5 py-24 text-center sm:px-8">
       <LogoMark className="mx-auto h-16 w-16" />
       <h2 className="mt-6 text-4xl leading-tight sm:text-5xl">Get the desktop app</h2>
       <p className="mt-4 text-lg text-muted">The same Strelka, in its own window. Works offline.</p>
@@ -360,7 +399,7 @@ function Download({ os, primaryLabel, onPrimary }) {
       <a
         href={main.url}
         aria-label={`Download Strelka for ${main.os}`}
-        className="mt-10 inline-flex items-center gap-3 rounded-full bg-ink px-9 py-5 text-xl text-white transition hover:opacity-85"
+        className="mt-10 inline-flex items-center gap-3 rounded-full bg-ink px-9 py-5 text-xl text-white transition duration-300 hover:scale-[1.03] hover:opacity-90 active:scale-[0.98]"
       >
         <Icon name={main.icon} size={24} />
         Download for {main.os}
@@ -410,6 +449,7 @@ function Footer({ links }) {
 }
 
 export default function Welcome({ onStart, onDemo, onContinue, theme, onToggleTheme }) {
+  useReveal()
   const os = detectOs()
   const showDownloads = !IN_DESKTOP_APP
   const primaryLabel = onContinue ? 'Back to Dashboard' : 'Get started'
