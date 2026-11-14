@@ -21,8 +21,8 @@ const NOTE_MS = 4000
 // "network" is what Brave and some other browsers report, because they block the online speech service.
 const ERRORS = {
   'not-allowed': 'Mic is blocked. Allow it in your browser settings.',
-  'service-not-allowed': 'Voice isn’t available in this browser. Try Chrome or Edge.',
-  network: 'Voice isn’t available in this browser. Try Chrome or Edge.',
+  'service-not-allowed': 'Voice command is only available on Chrome or Edge.',
+  network: 'Voice command is only available on Chrome or Edge.',
   'audio-capture': 'No microphone found.',
 }
 
