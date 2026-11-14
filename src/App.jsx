@@ -23,6 +23,7 @@ import Setup from './pages/Setup.jsx'
 import Today from './pages/Today.jsx'
 import Welcome from './pages/Welcome.jsx'
 
+
 function tabFromUrl() {
   const hash = window.location.hash.replace('#', '')
   return TABS.some((tab) => tab.id === hash) ? hash : 'today'
