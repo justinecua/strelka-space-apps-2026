@@ -35,3 +35,6 @@ coverage
 
 # Desktop app builds
 release
+
+# On-device voice model, downloaded by scripts/fetch-voice-model.mjs
+public/models

@@ -25,7 +25,7 @@ export default function Modal({ title, onClose, children }) {
         className="max-h-[90dvh] w-full max-w-lg overflow-hidden rounded-[28px] bg-white text-left text-ink"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="scrollbar-thin-custom max-h-[90dvh] overflow-y-auto px-8 py-8 pr-5">
+        <div className="scrollbar-thin-custom max-h-[80dvh] overflow-y-auto px-8 py-8 pr-5">
           <div className="flex items-start justify-between gap-4">
             <h2 className="text-3xl">{title}</h2>
             <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-field">
