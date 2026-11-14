@@ -55,7 +55,7 @@ export default function IndicatorField({ indicator, value, baselineValue, onChan
             type="button"
             onClick={() => setShowGuide(!showGuide)}
             aria-expanded={showGuide}
-            className="block text-sm text-muted underline hover:text-ink"
+            className="block text-sm text-muted no-underline transition-colors duration-300 hover:text-ink hover:underline"
           >
             {showGuide ? 'Hide guide' : 'How do I measure this?'}
           </button>
