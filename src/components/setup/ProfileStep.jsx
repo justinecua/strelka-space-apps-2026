@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { MISSIONS } from '../../data/missions.js'
 import { todayDate } from '../../lib/entries.js'
+import Icon from '../ui/Icon.jsx'
 import Button from '../ui/Button.jsx'
 import StepHeader from './StepHeader.jsx'
 
-const FIELD = 'mt-2 w-full rounded-full bg-field px-5 py-3 outline-none focus:ring-2 focus:ring-ink'
+const FIELD = 'mt-2 w-full appearance-none rounded-full bg-field px-5 py-3 outline-none focus:ring-2 focus:ring-ink'
 
 export default function ProfileStep({ onBack, onNext }) {
   const [name, setName] = useState('')
@@ -27,6 +28,7 @@ export default function ProfileStep({ onBack, onNext }) {
 
       <label className="block">
         <span>Where are you?</span>
+        <div className="relative">
         <select value={missionId} onChange={(event) => setMissionId(event.target.value)} className={FIELD}>
           {MISSIONS.map((mission) => (
             <option key={mission.id} value={mission.id}>
@@ -34,6 +36,12 @@ export default function ProfileStep({ onBack, onNext }) {
             </option>
           ))}
         </select>
+        <Icon
+          name="chevron"
+          size={16}
+          className="pointer-events-none absolute right-5 top-1/2 -translate-y-1"
+        />
+        </div>
         <span className="mt-1 block pl-5 text-sm text-muted">Used to warn you when ground support is far away.</span>
       </label>
 
@@ -47,6 +55,7 @@ export default function ProfileStep({ onBack, onNext }) {
           onChange={(event) => setStartDate(event.target.value)}
           className={FIELD}
         />
+
         <span className="mt-1 block pl-5 text-sm text-muted">Mission days are counted from this date.</span>
       </label>
 
