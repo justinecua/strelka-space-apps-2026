@@ -22,6 +22,15 @@ export function dayNumberFor(profile, entries, today = todayDate()) {
   return (entries.at(-1)?.day ?? 0) + 1
 }
 
+// The mission day for any calendar date: the existing entry's day, or worked out from the start date.
+export function dayNumberOn(profile, entries, date) {
+  const existing = entries.find((entry) => entry.loggedOn === date)
+  if (existing) return existing.day
+  if (date === todayDate()) return dayNumberFor(profile, entries, date)
+  if (profile?.startDate) return Math.max(1, missionDayOn(profile.startDate, date))
+  return (entries.at(-1)?.day ?? 0) + 1
+}
+
 export function addOrReplaceEntry(entries, entry, today, dayNumber) {
   const newEntry = { ...entry, day: dayNumber, loggedOn: today }
 

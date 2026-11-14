@@ -10,6 +10,15 @@ export const TIERS = {
     who: "No one. You're doing fine.",
     text: 'Everything looks normal today. Keep up your daily routine.',
   },
+  // Used when the latest check-in has no readings and no symptoms, so there is nothing to judge.
+  nodata: {
+    id: 'nodata',
+    rank: 0,
+    color: 'none',
+    label: 'No readings yet',
+    who: 'No one yet. Add your readings first.',
+    text: "Your last check-in didn't include any readings, so there's nothing to check. Add at least your heart rate and blood pressure to see today's status.",
+  },
   self: {
     id: 'self',
     rank: 1,

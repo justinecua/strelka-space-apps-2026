@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { INDICATOR_BY_ID } from '../../data/indicators.js'
+import { hasAnyValue } from '../../lib/chartData.js'
 import { formatValue } from '../../lib/ui.js'
 import TwoLineChart from '../charts/TwoLineChart.jsx'
 import FullScreen from '../ui/FullScreen.jsx'
@@ -20,6 +21,7 @@ export default function HeartCard({ state, result }) {
         tone="mint"
         onExpand={() => setOpen(true)}
         chart={<TwoLineChart data={recent} firstKey="hr" secondKey="sbp" />}
+        emptyText={hasAnyValue(recent, ['hr', 'sbp']) ? null : 'No heart readings yet'}
         left={{ label: 'Heart rate', value: formatValue(INDICATOR_BY_ID.hr, hr.value), unit: 'bpm', status: hr.status }}
         right={{ label: 'Blood pressure', value: formatValue(INDICATOR_BY_ID.sbp, sbp.value), unit: 'mmHg', status: sbp.status }}
       />

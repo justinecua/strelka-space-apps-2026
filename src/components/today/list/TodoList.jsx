@@ -3,7 +3,7 @@
 import { STATUS } from '../../../lib/ui.js'
 import CheckCircle from '../../ui/CheckCircle.jsx'
 
-export default function TodoList({ findings, doneIds, onToggle }) {
+export default function TodoList({ findings, hasReadings = true, doneIds, onToggle }) {
   const doneCount = findings.filter((finding) => doneIds.includes(finding.id)).length
 
   return (
@@ -17,7 +17,11 @@ export default function TodoList({ findings, doneIds, onToggle }) {
         )}
       </div>
 
-      {findings.length === 0 && <p className="rounded-[20px] bg-field p-5 text-muted">Nothing to do. All readings look normal.</p>}
+      {findings.length === 0 && (
+        <p className="rounded-[20px] bg-field p-5 text-muted">
+          {hasReadings ? 'Nothing to do. All readings look normal.' : 'Nothing to check yet. Your tips will show here once your check-in has readings.'}
+        </p>
+      )}
 
       <ul className="divide-y divide-line overflow-hidden rounded-[24px] bg-field">
         {findings.map((finding) => {

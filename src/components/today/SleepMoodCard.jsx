@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { INDICATOR_BY_ID } from '../../data/indicators.js'
+import { hasAnyValue } from '../../lib/chartData.js'
 import { statusOf } from '../../lib/status.js'
 import { formatValue } from '../../lib/ui.js'
 import StatusBars from '../charts/StatusBars.jsx'
@@ -26,6 +27,8 @@ export default function SleepMoodCard({ state, result }) {
         tone="gray"
         onExpand={() => setOpen(true)}
         chart={<StatusBars data={bars} />}
+        emptyText={hasAnyValue(state.entries.slice(-7), ['sleep']) ? null : 'No sleep logged yet'}
+        emptyShape="bars"
         left={{ label: 'Sleep', value: formatValue(sleepIndicator, sleep.value), unit: 'h', status: sleep.status }}
         right={{ label: 'Mood', value: formatValue(INDICATOR_BY_ID.mood, mood.value), unit: '/5', status: mood.status }}
       />
