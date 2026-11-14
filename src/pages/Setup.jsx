@@ -4,7 +4,8 @@ import { useState } from 'react'
 import BaselineStep from '../components/setup/BaselineStep.jsx'
 import ProfileStep from '../components/setup/ProfileStep.jsx'
 
-export default function Setup({ onCancel, onFinish }) {
+// onCancel goes back to the landing page; the desktop app has none, so it passes onDemo instead.
+export default function Setup({ onCancel, onDemo, onFinish }) {
   const [step, setStep] = useState(1)
   const [profile, setProfile] = useState(null)
 
@@ -19,7 +20,7 @@ export default function Setup({ onCancel, onFinish }) {
 
   return (
     <div className="w-full max-w-2xl">
-      {step === 1 && <ProfileStep onBack={onCancel} onNext={handleProfile} />}
+      {step === 1 && <ProfileStep onBack={onCancel} onDemo={onDemo} onNext={handleProfile} />}
       {step === 2 && <BaselineStep onBack={() => setStep(1)} onNext={handleBaseline} />}
     </div>
   )

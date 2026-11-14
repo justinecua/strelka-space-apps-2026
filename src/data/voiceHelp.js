@@ -8,10 +8,10 @@ export const VOICE_HELP = [
   },
   {
     title: 'Getting around',
-    phrases: ['go to today', 'open check-in', 'go to body', 'open history', 'relax', 'go back', 'go to the home page', 'scroll down', 'go to the top'],
+    phrases: ['go home', 'open check-in', 'go to body', 'open history', 'relax', 'go back', 'go to the home page', 'scroll down', 'go to the top'],
   },
   {
-    title: 'Today',
+    title: 'Home',
     phrases: [
       'open the heart card',
       'expand sleep and mood',
@@ -42,6 +42,11 @@ export const VOICE_HELP = [
       'I slept 7 hours',
       'treadmill for 30 minutes',
       'severity 3',
+      'start simulation',
+      'stop simulation',
+      'skip this question',
+      'previous question',
+      'repeat the question',
       'review',
       'submit',
       'cancel',

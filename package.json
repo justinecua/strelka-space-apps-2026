@@ -64,8 +64,19 @@
       "artifactName": "Strelka.exe"
     },
     "mac": {
-      "target": "dmg",
-      "icon": "build/icon.png"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.healthcare-fitness",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Strelka listens for voice commands and check-in answers. Speech is recognised on this computer and never sent anywhere."
+      }
     },
     "dmg": {
       "artifactName": "Strelka.dmg"

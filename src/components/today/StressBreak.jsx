@@ -58,37 +58,62 @@ export default function StressBreak() {
   }
 
   const label = running ? (breathingIn ? 'Breathe in' : 'Breathe out') : done ? 'Well done' : 'Ready'
+  const cyclePos = elapsed % CYCLE_SECONDS
+  const phaseLeft = breathingIn ? IN_SECONDS - cyclePos : CYCLE_SECONDS - cyclePos
+  const shownSeconds = running ? secondsLeft : TOTAL_SECONDS
+  const clock = `${Math.floor(shownSeconds / 60)}:${String(shownSeconds % 60).padStart(2, '0')}`
+  const progress = running || done ? Math.min(elapsed / TOTAL_SECONDS, 1) : 0
 
-  // The circle grows over the 4-second inhale and shrinks over the 6-second exhale.
-  // The ring uses the text color, so the circle stays visible in both light and dark mode.
-  const circleStyle = {
-    transform: running ? (breathingIn ? 'scale(1.25)' : 'scale(0.9)') : 'scale(1)',
+  // The gauge fills over the 4-second inhale and empties over the 6-second exhale.
+  const fill = running ? (breathingIn ? 1 : 0.08) : done ? 1 : 0.08
+  const fillStyle = {
+    transform: `scaleY(${fill})`,
     transitionDuration: `${running && !breathingIn ? OUT_SECONDS : IN_SECONDS}s`,
-    boxShadow: '0 0 0 2px color-mix(in srgb, currentColor 40%, transparent)',
   }
 
-  return (
-    <Card title="Take a 2-minute break" tone="mint">
-      <p className="text-muted">Breathing slowly can help you relax. Follow the circle.</p>
+  const hint = running
+    ? breathingIn
+      ? 'In through your nose.'
+      : 'Out slowly through your mouth.'
+    : done
+      ? 'Take a moment before you go back.'
+      : '4 seconds in, 6 seconds out.'
 
-      <div className="mt-8 mb-0 flex flex-col items-center gap-3">
-        <div
-          aria-live="polite"
-          className="grid h-40 w-40 place-items-center rounded-full bg-good-soft text-xl transition-transform ease-in-out motion-reduce:transition-none"
-          style={circleStyle}
-        >
-          {label}
+  return (
+    <Card title="Take a 2-minute break" tone="mint" action={<span className="tabular-nums text-muted">{clock}</span>}>
+      <div className="mt-2 flex items-center gap-8 sm:gap-12">
+        <div className="relative h-56 w-20 shrink-0 overflow-hidden rounded-full border border-ink/15 bg-white sm:h-64 sm:w-24">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 origin-bottom bg-good transition-transform ease-in-out motion-reduce:transition-none"
+            style={fillStyle}
+          />
         </div>
-        {running && <p className="mt-5 text-sm text-muted">{secondsLeft} seconds left</p>}
+
+        <div className="min-w-0">
+          <p aria-live="polite" className="text-4xl sm:text-5xl">
+            {label}
+          </p>
+          <p className="mt-2 text-muted">
+            {running && <span className="mr-2 tabular-nums text-ink">{phaseLeft}</span>}
+            {hint}
+          </p>
+        </div>
       </div>
 
-      {running ? (
-        <Button variant="light" onClick={stop}>
-          Stop
-        </Button>
-      ) : (
-        <Button onClick={start}>{done ? 'Do it again' : 'Start breathing'}</Button>
-      )}
+      <div className="mt-8 h-1 overflow-hidden rounded-full bg-ink/10">
+        <div className="h-full bg-ink transition-[width] duration-300" style={{ width: `${progress * 100}%` }} />
+      </div>
+
+      <div className="mt-6">
+        {running ? (
+          <Button variant="outline" onClick={stop}>
+            Stop
+          </Button>
+        ) : (
+          <Button onClick={start}>{done ? 'Do it again' : 'Start breathing'}</Button>
+        )}
+      </div>
     </Card>
   )
 }

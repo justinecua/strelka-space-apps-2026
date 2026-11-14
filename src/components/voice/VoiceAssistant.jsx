@@ -20,7 +20,9 @@ import { parseCommand } from '../../lib/voiceCommands.js'
 import { createVoiceEngine, isVoiceSupported } from '../../lib/voiceEngine.js'
 import { matchCommand, matchReadings } from '../../lib/voiceMatch.js'
 import { sendVoice } from '../../lib/voiceEvents.js'
-import { COMMAND_PHRASES, WAKE_PHRASES } from '../../lib/voiceVocabulary.js'
+import { isSpeaking } from '../../lib/speech.js'
+import { CLICK, CLICK_START, clickByName, clickPhrases, screenButtons, screenWords } from '../../lib/voiceScreen.js'
+import { COMMAND_PHRASES, COMMAND_VOCABULARY, WAKE_PHRASES } from '../../lib/voiceVocabulary.js'
 import Modal from '../ui/Modal.jsx'
 
 const SUPPORTED = isVoiceSupported()
@@ -28,10 +30,17 @@ const SUPPORTED = isVoiceSupported()
 const NOTE_MS = 4000
 // How long the unfinished words must stay the same before a short command runs early.
 const STEADY_MS = 350
+// When those words could still grow into a longer command ("open sleep" → "open sleep and mood"), wait longer.
+const PREFIX_STEADY_MS = 1200
+// The speech engine ends a sentence after about half a second of quiet, so someone who speaks slowly gets cut
+// in pieces ("go to" … "history", "heart rate" … "sixty two"). An unfinished piece is held this long for the rest.
+const JOIN_MS = 2500
+// On Check-in, anything can follow ("heart rate" … "sixty two"), so every piece waits this long after the last word.
+const CHECKIN_JOIN_MS = 1500
 // Commands that are safe to run before the sentence is finished (no numbers, nothing that saves data).
 const EARLY_COMMANDS = new Set([
   'navigate', 'openCard', 'close', 'back', 'help', 'layout', 'theme', 'landing', 'profile', 'region', 'hazard',
-  'mission', 'checkinType', 'why', 'scroll', 'breathe', 'showMore', 'addMissed', 'report', 'stop',
+  'mission', 'checkinType', 'why', 'scroll', 'breathe', 'showMore', 'addMissed', 'report', 'stop', 'guide',
 ])
 const MODE_KEY = 'strelka.voiceMode'
 
@@ -42,7 +51,7 @@ const ERRORS = {
   model: 'The voice model could not load. Check the connection and reload once.',
 }
 
-const TAB_NAMES = { today: 'Today', checkin: 'Check-in', body: 'Body', relax: 'Relax', history: 'History' }
+const TAB_NAMES = { today: 'Home', checkin: 'Check-in', body: 'Body', relax: 'Relax', history: 'History' }
 const CARD_NAMES = { heart: 'Heart', sleep: 'Sleep & mood', blood: 'Blood', missionLog: 'Mission log', doNext: 'Do next', readings: 'Readings' }
 const CHECKIN_NAMES = { morning: 'morning check-in', exercise: 'post-exercise check-in', evening: 'before-sleep check-in', symptom: 'symptom report' }
 // With a phrase list, a real command comes back word for word with full confidence; background talk comes back
@@ -50,6 +59,26 @@ const CHECKIN_NAMES = { morning: 'morning check-in', exercise: 'post-exercise ch
 const KNOWN_COMMANDS = new Set(COMMAND_PHRASES)
 const KNOWN_WAKE = new Set(WAKE_PHRASES)
 const MIN_CONFIDENCE = 0.85
+// The start of every phrase ("go to", "show day"). The engine may hear these on their own, so someone who pauses
+// mid-command gets "take me to" (held for the rest) instead of a wrong guess at a whole phrase.
+function prefixesOf(phrases) {
+  return phrases.flatMap((phrase) => {
+    const words = phrase.split(' ')
+    return words.slice(1).map((_, index) => words.slice(0, index + 1).join(' '))
+  })
+}
+// Only openers shared by several commands are added; adding every beginning makes the engine sloppier.
+function openersOf(phrases, min) {
+  const counts = new Map()
+  for (const prefix of prefixesOf(phrases)) counts.set(prefix, (counts.get(prefix) ?? 0) + 1)
+  return [...counts].filter(([prefix, count]) => count >= min && prefix.includes(' ')).map(([prefix]) => prefix)
+}
+// Words people say that aren't commands here. Without them on the list the engine turns "click" into the
+// nearest command word ("glucose", "delete"); with them it hears "click" and Strelka ignores it.
+const NOT_COMMANDS = ['click', 'tap', 'press', 'select', 'choose', 'pick', 'button']
+const COMMAND_GRAMMAR = [...new Set([...COMMAND_PHRASES, ...openersOf(COMMAND_PHRASES, 5), ...NOT_COMMANDS])]
+const WAKE_GRAMMAR = [...new Set([...WAKE_PHRASES, ...openersOf(WAKE_PHRASES, 2)])]
+const PREFIXES = new Set(prefixesOf([...COMMAND_PHRASES, ...WAKE_PHRASES]))
 const STANDBY_HINT = 'Say “enable voice command” to start.'
 
 // Spoken phrases are rarely exact ("okay, enable the voice commands please"), so on and off are matched loosely.
@@ -119,9 +148,21 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
   const startedByTap = useRef(false)
   const earlyTimer = useRef(null)
   // The sentence being spoken right now was already acted on early, so its final result is skipped.
-  const handledEarly = useRef(false)
+  // The words of the sentence that was already acted on early, or ''. Its final result is skipped only if it
+  // is the same sentence; any new sentence clears it. (The final can go missing, e.g. when the page changes.)
+  const handledEarly = useRef('')
+  // Words heard before a pause, waiting for the rest of the sentence (see JOIN_MS).
+  const pending = useRef({ text: '', confidence: 1, wait: 0 })
+  const flushTimer = useRef(null)
   // The speech engine keeps its first callbacks, so it reads the newest props from here.
   const latest = useRef({})
+  // The words written on the current page, refreshed as the page changes (see lib/voiceScreen.js).
+  const [pageWords, setPageWords] = useState('')
+  // The names of the buttons on screen ("review", "very tired"), for "click …". One string, so it only
+  // changes when the buttons do.
+  const [pageButtons, setPageButtons] = useState('')
+  // "click review", "tap on very tired"… for the buttons on screen now.
+  const clickKnown = useRef(new Set())
 
   // Hides the page scrollbar (scrolling with wheel, touch and keyboard still works).
   useEffect(() => {
@@ -145,6 +186,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     if (SUPPORTED && saved !== 'off') startListening(saved, false)
     return () => {
       clearTimeout(earlyTimer.current)
+      clearTimeout(flushTimer.current)
       modeRef.current = 'off'
       engine.current?.stop()
       engine.current = null
@@ -152,14 +194,46 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // What the engine listens for. Telling it the exact phrases to expect makes it far more accurate:
+  // Keep the page's words up to date while on Check-in (forms and options change as you switch check-ins or
+  // open a section). Re-read a moment after the page settles, and only count it when the words changed.
+  // The buttons on screen are tracked on every page, for "click …".
+  const micOpen = mode !== 'off'
+  useEffect(() => {
+    if (!micOpen) return undefined
+    let timer = null
+    const refresh = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        if (tab === 'checkin') setPageWords(screenWords().join(' '))
+        setPageButtons([...new Set(screenButtons().map((button) => button.name))].sort().join('|'))
+      }, 400)
+    }
+    refresh()
+    const observer = new MutationObserver(refresh)
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [tab, micOpen])
+
+  useEffect(() => {
+    clickKnown.current = new Set(clickPhrases(pageButtons.split('|').filter(Boolean)))
+  }, [pageButtons])
+
+  // What the engine listens for. Telling it which words or phrases to expect makes it far more accurate:
   //   standby   only the wake phrases ("enable voice command"); everything else is ignored.
   //   active    Strelka's command phrases.
-  //   Check-in  any words, so readings and notes like "what happened" can be dictated.
+  //   Check-in  only words that appear on the website: Strelka's vocabulary plus every word on the page
+  //             (field names, options, symptom names, scale labels), and numbers. What you say comes out in
+  //             the site's words, so a word on the page is never heard as a different word.
   useEffect(() => {
-    const phrases = mode === 'standby' ? WAKE_PHRASES : mode === 'active' && tab !== 'checkin' ? COMMAND_PHRASES : null
-    engine.current?.setGrammar(phrases)
-  }, [mode, tab, engineState])
+    let grammar = null
+    if (mode === 'standby') grammar = WAKE_GRAMMAR
+    else if (mode === 'active' && tab !== 'checkin') grammar = [...COMMAND_GRAMMAR, ...clickPhrases(pageButtons.split('|').filter(Boolean))]
+    else if (mode === 'active') grammar = [...new Set([...COMMAND_VOCABULARY, ...pageWords.split(' ').filter(Boolean)])]
+    engine.current?.setGrammar(grammar)
+  }, [mode, tab, engineState, pageWords, pageButtons])
 
   // Errors, and notes shown in standby, clear themselves after a few seconds.
   useEffect(() => {
@@ -209,7 +283,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
 
   function isKnownPhrase(sentence) {
     const text = sentence.toLowerCase().trim()
-    return modeRef.current === 'standby' ? KNOWN_WAKE.has(text) : KNOWN_COMMANDS.has(text)
+    return modeRef.current === 'standby' ? KNOWN_WAKE.has(text) : KNOWN_COMMANDS.has(text) || clickKnown.current.has(text)
   }
 
   function handle(sentence, confidence = 1) {
@@ -228,6 +302,15 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
 
     if (DISABLE.test(sentence) || command?.type === 'voiceOff') return disable()
     if (ENABLE.test(sentence) || command?.type === 'voiceOn') return setNote('Voice commands are already on.')
+
+    // "click review", "tap very tired": press that button on screen. If nothing fits, the sentence is
+    // treated as usual ("select morning" is also a command).
+    const click = CLICK.exec(sentence.toLowerCase().trim())
+    if (click) {
+      const pressed = clickByName(click[1])
+      if (pressed) return setNote(`Pressed “${pressed}”`)
+      if (!command) return setNote(`No “${click[1]}” button on screen.`)
+    }
 
     const current = latest.current
 
@@ -272,6 +355,15 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
       case 'help':
         setShowHelp(true)
         setNote('Here is everything you can say.')
+        break
+      case 'guide':
+        if (command.action === 'on' || command.action === 'off') {
+          const on = command.action === 'on'
+          onPage('checkin', 'simulation', { on }, 'Open Check-in to change simulation mode.')
+          setNote(on ? 'Simulation on. Strelka will ask one question at a time.' : 'Simulation off. The whole form is shown.')
+        } else if (current.tab !== 'checkin' || !sendVoice('guide', { action: command.action })) {
+          setNote('Say “start simulation” on the Check-in page first.')
+        }
         break
       case 'answer':
         if (!sendVoice('answer', { yes: command.yes })) setNote('There is no question to answer right now.')
@@ -408,26 +500,46 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     if (engine.current) return
 
     engine.current = createVoiceEngine({
-      onPartial: (text) => {
+      onPartial: (piece) => {
+        // Strelka is reading a question aloud: that is its own voice, not the astronaut's.
+        if (isSpeaking()) return
+        // Still talking: keep waiting for the rest of a held piece.
+        if (pending.current.text) holdPending(pending.current.text, pending.current.confidence, pending.current.wait)
+        const text = withPending(piece)
         if (modeRef.current === 'standby') {
           // React to "enable voice command" as soon as it is heard, without waiting for the pause after it.
-          if (KNOWN_WAKE.has(text) && ENABLE.test(text) && !handledEarly.current) {
-            handledEarly.current = true
+          if (KNOWN_WAKE.has(text) && ENABLE.test(text) && handledEarly.current !== text) {
+            handledEarly.current = text
+            clearPending()
             enable()
           }
           return
         }
         if (modeRef.current !== 'active') return
+        // A new sentence that isn't a continuation of the one handled early: forget that one.
+        if (handledEarly.current && !text.startsWith(handledEarly.current)) handledEarly.current = ''
         setCaption(text)
         runEarlyWhenSteady(text)
       },
-      onFinal: (text, confidence) => {
+      onFinal: (piece, pieceConfidence) => {
         clearTimeout(earlyTimer.current)
-        setCaption('')
-        const skip = handledEarly.current
-        handledEarly.current = false
+        if (isSpeaking()) {
+          setCaption('')
+          return
+        }
+        const text = withPending(piece)
+        // The new words decide: the held opener was already checked against the phrase list.
+        const confidence = pieceConfidence
+        const early = handledEarly.current
+        const skip = Boolean(early) && (text.startsWith(early) || piece.startsWith(early))
+        handledEarly.current = ''
         window.__strelkaVoiceLog?.push({ text, confidence: Number(confidence.toFixed(2)), mode: modeRef.current })
-        if (!skip) handle(text, confidence)
+        if (skip) {
+          clearPending()
+          setCaption('')
+          return
+        }
+        onSentence(text, confidence, piece, pieceConfidence)
       },
       onError: (code) => {
         // A silent start on page load fails quietly; a tap shows what went wrong.
@@ -440,24 +552,86 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     engine.current.start()
   }
 
+  // The words held from before a pause, followed by the new ones.
+  function withPending(text) {
+    return pending.current.text ? `${pending.current.text} ${text}` : text
+  }
+
+  function clearPending() {
+    clearTimeout(flushTimer.current)
+    pending.current = { text: '', confidence: 1, wait: 0 }
+  }
+
+  // Holds words for the rest of the sentence; if nothing more is said in time, they are acted on as they are.
+  function holdPending(text, confidence, wait) {
+    clearTimeout(flushTimer.current)
+    pending.current = { text, confidence, wait }
+    flushTimer.current = setTimeout(() => {
+      clearPending()
+      setCaption('')
+      handle(text, confidence)
+    }, wait)
+  }
+
+  // A sentence the engine finished (after a pause). Acts on it now, or holds it if it looks unfinished.
+  function onSentence(text, confidence, piece, pieceConfidence) {
+    if (modeRef.current === 'active' && !isStrict()) {
+      // Check-in: "heart rate" … "sixty two" — wait a moment in case more follows.
+      setCaption(text)
+      return holdPending(text, confidence, CHECKIN_JOIN_MS)
+    }
+    const known = isKnownPhrase(text)
+    const unfinished = PREFIXES.has(text) || CLICK_START.test(text)
+    // "take me to demo" heard unsurely after a pause: the engine guessed an ending. Keep "take me to", wait for the rest.
+    if (known && confidence < MIN_CONFIDENCE && !pending.current.text) {
+      const words = text.split(' ')
+      const opener = words.slice(0, -1).map((_, index) => words.slice(0, words.length - 1 - index).join(' ')).find((start) => PREFIXES.has(start) && start.includes(' '))
+      if (opener) {
+        if (modeRef.current === 'active') setCaption(opener)
+        return holdPending(opener, 1, JOIN_MS)
+      }
+    }
+    if (known && !unfinished) {
+      clearPending()
+      setCaption('')
+      return handle(text, confidence)
+    }
+    // "go to" … or "show day twenty" … (could still be "twenty two"): wait for the rest.
+    if (known || unfinished) {
+      if (modeRef.current === 'active') setCaption(text)
+      return holdPending(text, confidence, JOIN_MS)
+    }
+    // The new words don't continue the held ones: act on the held words, then look at the new ones alone.
+    if (pending.current.text) {
+      const held = pending.current
+      clearPending()
+      handle(held.text, held.confidence)
+      return onSentence(piece, pieceConfidence, piece, pieceConfidence)
+    }
+    setCaption('')
+    handle(text, confidence)
+  }
+
   // Short commands without numbers ("go to body", "close", "list view") run as soon as the words stop changing,
   // instead of waiting for the pause at the end of the sentence.
   function runEarlyWhenSteady(text) {
     clearTimeout(earlyTimer.current)
-    if (handledEarly.current || /\d/.test(text)) return
+    if (handledEarly.current === text || /\d/.test(text)) return
     if (isStrict() && !KNOWN_COMMANDS.has(text)) return
     const command = parseCommand(text)
     if (!command || !EARLY_COMMANDS.has(command.type)) return
     earlyTimer.current = setTimeout(() => {
-      if (modeRef.current !== 'active' || handledEarly.current) return
-      handledEarly.current = true
+      if (modeRef.current !== 'active' || handledEarly.current === text) return
+      handledEarly.current = text
+      clearPending()
       setCaption('')
       handle(text)
-    }, STEADY_MS)
+    }, PREFIXES.has(text) ? PREFIX_STEADY_MS : STEADY_MS)
   }
 
   function closeMic() {
     clearTimeout(earlyTimer.current)
+    clearPending()
     setModeBoth('off')
     engine.current?.stop()
     engine.current = null
@@ -496,7 +670,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
   }[mode]
 
   return (
-    <div className="relative flex items-center gap-1.5">
+    <div data-voice-ignore className="relative flex items-center gap-1.5">
       {!compact && <span className="mx-0.5 h-7 w-px bg-ink/10" aria-hidden="true" />}
       {showHelp && (
         <Modal title="What you can say" onClose={() => setShowHelp(false)}>

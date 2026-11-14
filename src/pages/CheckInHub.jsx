@@ -8,9 +8,44 @@ import { todayDate } from '../lib/entries.js'
 import { recordHighlights } from '../lib/records.js'
 import { dailyStatus, formatTime, suggestedType } from '../lib/schedule.js'
 import { useNow } from '../lib/useNow.js'
+import { useVoiceEvent } from '../lib/voiceEvents.js'
 import CheckInForm from '../components/checkin/CheckInForm.jsx'
 import StepHeader from '../components/setup/StepHeader.jsx'
 import Icon from '../components/ui/Icon.jsx'
+
+const SIMULATION_KEY = 'strelka.simulation'
+
+// Simulation mode is on unless the astronaut turned it off.
+function readSimulation() {
+  try {
+    return localStorage.getItem(SIMULATION_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function SimulationSwitch({ on, onChange }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label="Simulation mode"
+      onClick={() => onChange(!on)}
+      className="flex w-full items-center gap-4 rounded-[24px] bg-field px-5 py-4 text-left transition hover:bg-white"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block">Simulation mode</span>
+        <span className="block text-sm text-muted">
+          {on ? 'Strelka asks you one question at a time.' : 'Off. You see the whole form at once.'}
+        </span>
+      </span>
+      <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${on ? 'bg-ink' : 'bg-line'}`}>
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? 'left-6' : 'left-1'}`} />
+      </span>
+    </button>
+  )
+}
 
 const GREETING = {
   morning: 'Good morning',
@@ -43,6 +78,19 @@ export default function CheckInHub({ state, onSubmit }) {
   const suggested = suggestedType(records, state.entries, now)
   const [typeId, setTypeId] = useState(suggested)
   const [chosenByHand, setChosenByHand] = useState(false)
+  const [simulation, setSimulationState] = useState(readSimulation)
+
+  function setSimulation(on) {
+    setSimulationState(on)
+    try {
+      localStorage.setItem(SIMULATION_KEY, on ? 'on' : 'off')
+    } catch {
+      // Remembering the choice is optional.
+    }
+  }
+
+  // "start simulation", "stop simulation".
+  useVoiceEvent('simulation', ({ on }) => setSimulation(on))
   const type = CHECKIN_TYPES[typeId]
   const isFirst = state.entries.length === 0
 
@@ -116,7 +164,9 @@ export default function CheckInHub({ state, onSubmit }) {
         <p className="mt-2 text-muted">{type.purpose}</p>
       </div>
 
-      <CheckInForm key={`${typeId}-${records.length}`} type={type} baseline={state.baseline} onSubmit={onSubmit} />
+      <SimulationSwitch on={simulation} onChange={setSimulation} />
+
+      <CheckInForm key={`${typeId}-${records.length}-${simulation}`} type={type} baseline={state.baseline} onSubmit={onSubmit} guided={simulation} />
 
       {todays.length > 0 && (
         <section className="pt-4">

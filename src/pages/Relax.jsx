@@ -14,9 +14,7 @@ export default function Relax({ highStress = false }) {
             : 'Take a short breathing break whenever you need one.'}
         </p>
       </div>
-      <div className="max-w-2xl">
-        <StressBreak />
-      </div>
+      <StressBreak />
     </div>
   )
 }

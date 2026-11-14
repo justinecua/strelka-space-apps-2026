@@ -27,6 +27,7 @@ import CheckInHub from './pages/CheckInHub.jsx'
 import History from './pages/History.jsx'
 import Relax from './pages/Relax.jsx'
 import Setup from './pages/Setup.jsx'
+import { IS_DESKTOP } from './lib/platform.js'
 import Today from './pages/Today.jsx'
 import Welcome from './pages/Welcome.jsx'
 import Footer from './components/layout/Footer.jsx'
@@ -197,13 +198,15 @@ export default function App() {
     mission: voiceMission,
     theme: voiceTheme,
     logout: handleReset,
-    landing: () => setShowLanding(true),
+    // The desktop app has no landing page: "home page" goes to Today instead.
+    landing: () => (IS_DESKTOP ? goTo('today') : setShowLanding(true)),
     hazard: (id) => (HAZARD_BY_ID[id] ? setHazardId(id) : notify('Hazard not found.')),
   }
 
   // First run: no profile yet.
   // The Welcome page fills the whole window, without the white frame.
-  if (!state.profile && !showSetup) {
+  // The desktop app skips the landing page (it is for the website) and opens straight to setup.
+  if (!state.profile && !showSetup && !IS_DESKTOP) {
     return <Welcome onStart={() => setShowSetup(true)} onDemo={handleDemo} theme={theme} onToggleTheme={toggleTheme} />
   }
 
@@ -212,7 +215,11 @@ export default function App() {
       <AppFrame>
         <div className="flex flex-1 flex-col items-center justify-center gap-6 py-2">
           <Logo inverted={theme === 'dark'} />
-          <Setup onCancel={() => setShowSetup(false)} onFinish={handleSetupDone} />
+          <Setup
+            onCancel={IS_DESKTOP ? null : () => setShowSetup(false)}
+            onDemo={IS_DESKTOP ? handleDemo : null}
+            onFinish={handleSetupDone}
+          />
         </div>
       </AppFrame>
     )
@@ -220,7 +227,7 @@ export default function App() {
 
   // The logo in the header (or "go to the home page") opens the landing page again, without touching saved data.
   // A small microphone stays in the corner, so voice can bring you back ("go to today", "go back").
-  if (showLanding) {
+  if (showLanding && !IS_DESKTOP) {
     const leaveLanding = (nextTab = tab) => {
       setShowLanding(false)
       goTo(nextTab, { remember: false })
@@ -257,12 +264,13 @@ export default function App() {
         name={state.profile.name}
         isDemo={state.isDemo}
         onReset={handleReset}
-        onLogoClick={() => setShowLanding(true)}
+        onLogoClick={() => (IS_DESKTOP ? goTo('today') : setShowLanding(true))}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
 
       <main className="mt-10 flex-1 pb-8">
+        <div key={`${tab}-${editing ? 'edit' : 'view'}`} className="page-enter">
         {tab === 'today' && (
           <Today
             state={state}
@@ -296,6 +304,7 @@ export default function App() {
             onDelete={askDeleteDay}
           />
         )}
+        </div>
       </main>
 
       <BottomNav

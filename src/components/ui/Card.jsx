@@ -13,7 +13,7 @@ const TONES = {
 
 export default function Card({ id, title, action, onExpand, tone = 'gray', padding = 'p-6', className = '', children }) {
   return (
-    <section id={id} className={`rounded-[28px] ${padding} ${TONES[tone]} ${className}`}>
+    <section id={id} className={`card-enter rounded-[28px] ${padding} ${TONES[tone]} ${className}`}>
       {(title || action || onExpand) && (
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl">{title}</h2>
