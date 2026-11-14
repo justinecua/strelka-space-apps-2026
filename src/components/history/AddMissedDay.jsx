@@ -27,6 +27,7 @@ export default function AddMissedDay({ startDate, entries, onAdd }) {
       <p className="text-sm text-muted">Pick the date and fill in what you measured.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <input
+          id="missed-date"
           type="date"
           required
           value={date}

@@ -2,6 +2,7 @@
 // gray when the check-in had no readings. The expand button lists every flagged day and what was found.
 
 import { useState } from 'react'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import { recentDays, summarizeDays } from '../../lib/missionLog.js'
 import DotGrid from '../charts/DotGrid.jsx'
 import FullScreen from '../ui/FullScreen.jsx'
@@ -10,6 +11,8 @@ import StatCard from './StatCard.jsx'
 
 export default function MissionLogCard({ state }) {
   const [open, setOpen] = useState(false)
+  // "open the missionLog card" by voice opens it full screen.
+  useVoiceEvent('open-card', ({ card }) => (card === 'missionLog' ? setOpen(true) : false))
   const days = recentDays(state.entries, state.baseline)
   const { flagged, goodPercent } = summarizeDays(days)
   const noData = goodPercent === null

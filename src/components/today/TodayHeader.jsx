@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { STATUS } from '../../lib/ui.js'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import IconTip from '../ui/IconTip.jsx'
 import LayoutToggle from './LayoutToggle.jsx'
 import ReportButtons from './ReportButtons.jsx'
@@ -10,6 +11,7 @@ import WhyBaselineDialog from './WhyBaselineDialog.jsx'
 
 export default function TodayHeader({ state, result, mission, layout, onLayoutChange }) {
   const [showWhy, setShowWhy] = useState(false)
+  useVoiceEvent('why', () => setShowWhy(true))
   const { tier, commNote, latest } = result
 
   return (
