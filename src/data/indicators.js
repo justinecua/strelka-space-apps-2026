@@ -159,10 +159,8 @@ export const INDICATORS = [
     label: 'Sleep last night',
     short: 'Sleep',
     unit: 'h',
-    step: 0.25,
-    min: 0,
-    max: 14,
-    decimals: 1,
+    inputType: 'duration',
+    maxHours: 14,
     region: 'brain',
     redLow: 4,
     yellowLow: 6,
@@ -229,6 +227,8 @@ export const INDICATORS = [
     label: 'Exercise today',
     short: 'Exer',
     unit: 'min',
+    inputType: 'duration',
+    maxHours: 4,
     step: 5,
     min: 0,
     max: 240,
@@ -244,7 +244,9 @@ export const INDICATORS = [
     why: 'Daily resistive and aerobic exercise is the main countermeasure against bone and muscle loss.',
     spaceEffect:
       'Without loading, astronauts can lose 1–1.5% of bone mass in the hips and spine each month, plus muscle strength and aerobic capacity.',
-    howTo: ['Log the total minutes on the resistive device, treadmill and cycle today.'],
+    howTo: [
+      'Log the total minutes on the resistive device, treadmill and cycle today.',
+    ],
   },
 ]
 
