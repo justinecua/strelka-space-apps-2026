@@ -1,10 +1,11 @@
 // The microphone at the right end of the bottom navigation. One line above it says what is happening.
+// Speech is recognised on the device with Vosk (lib/voiceEngine.js): offline, private and quick.
 //
 // Three modes:
 //   standby  the default. The mic starts by itself when the app opens and only listens for
 //            "enable voice command" (or "hey Strelka"). No other command does anything.
 //   active   "Strelka is listening…". Every command works until "disable voice command".
-//   off      the mic is closed. Only after "turn off the microphone", or when the browser can't do voice.
+//   off      the mic is closed. Only after "turn off the microphone", or when the device can't do voice.
 //
 // The mode is remembered on this device. Say "enable voice command" once and commands stay on, after a reload
 // or on the next visit, until "disable voice command". After "turn off the microphone" it stays closed.
@@ -14,35 +15,60 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { INDICATOR_BY_ID } from '../../data/indicators.js'
-import { parseCommand } from '../../lib/voiceCommands.js'
-import { parseVoice } from '../../lib/voiceParser.js'
-import { sendVoice } from '../../lib/voiceEvents.js'
 import { VOICE_HELP } from '../../data/voiceHelp.js'
+import { parseCommand } from '../../lib/voiceCommands.js'
+import { createVoiceEngine, isVoiceSupported } from '../../lib/voiceEngine.js'
+import { matchCommand, matchReadings } from '../../lib/voiceMatch.js'
+import { sendVoice } from '../../lib/voiceEvents.js'
+import { COMMAND_PHRASES, WAKE_PHRASES } from '../../lib/voiceVocabulary.js'
 import Modal from '../ui/Modal.jsx'
 
-const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
+const SUPPORTED = isVoiceSupported()
 
 const NOTE_MS = 4000
-const RESTART_DELAY_MS = 300
+// How long the unfinished words must stay the same before a short command runs early.
+const STEADY_MS = 350
+// Commands that are safe to run before the sentence is finished (no numbers, nothing that saves data).
+const EARLY_COMMANDS = new Set([
+  'navigate', 'openCard', 'close', 'back', 'help', 'layout', 'theme', 'landing', 'profile', 'region', 'hazard',
+  'mission', 'checkinType', 'why', 'scroll', 'breathe', 'showMore', 'addMissed', 'report', 'stop',
+])
 const MODE_KEY = 'strelka.voiceMode'
 
-// Short messages for the speech errors people actually hit.
-// "network" is what Brave and some other browsers report, because they block the online speech service.
+// Short messages for what can go wrong with the microphone or the speech model.
 const ERRORS = {
   'not-allowed': 'Mic is blocked. Allow it in your browser settings.',
-  'service-not-allowed': 'Voice command is only available on Chrome or Edge.',
-  network: 'Voice command is only available on Chrome or Edge.',
-  'audio-capture': 'No microphone found.',
+  'no-microphone': 'No microphone found.',
+  model: 'The voice model could not load. Check the connection and reload once.',
 }
 
 const TAB_NAMES = { today: 'Today', checkin: 'Check-in', body: 'Body', relax: 'Relax', history: 'History' }
+const CARD_NAMES = { heart: 'Heart', sleep: 'Sleep & mood', blood: 'Blood', missionLog: 'Mission log', doNext: 'Do next', readings: 'Readings' }
 const CHECKIN_NAMES = { morning: 'morning check-in', exercise: 'post-exercise check-in', evening: 'before-sleep check-in', symptom: 'symptom report' }
+// With a phrase list, a real command comes back word for word with full confidence; background talk comes back
+// as fragments that are not on the list. So only exact, confident phrases count.
+const KNOWN_COMMANDS = new Set(COMMAND_PHRASES)
+const KNOWN_WAKE = new Set(WAKE_PHRASES)
+const MIN_CONFIDENCE = 0.85
 const STANDBY_HINT = 'Say “enable voice command” to start.'
 
 // Spoken phrases are rarely exact ("okay, enable the voice commands please"), so on and off are matched loosely.
 const ENABLE = /\b(enable|turn on|activate|start|resume|open)\b.*\bvoice\b|\b(hey|ok|okay)\s+strelka\b/i
 const DISABLE = /\b(disable|turn off|deactivate|stop|pause|close)\b.*\bvoice\b/i
 const MIC_OFF = /\b(turn off|close|switch off)\b.*\b(mic|microphone)\b/i
+
+// Runs once React has drawn the next screen (two animation frames), instead of a fixed wait.
+// Animation frames pause in hidden tabs, so a short timer is the fallback; whichever comes first wins.
+function afterRender(callback) {
+  let done = false
+  const run = () => {
+    if (done) return
+    done = true
+    callback()
+  }
+  requestAnimationFrame(() => requestAnimationFrame(run))
+  setTimeout(run, 150)
+}
 
 // Scrolls whatever is on top: an open full-screen card or pop-up, otherwise the page.
 function scrollPage(to) {
@@ -81,17 +107,19 @@ function saveMode(mode) {
 // compact: no divider in front, for the mic on the landing page.
 export default function VoiceAssistant({ tab, actions, compact = false }) {
   const [mode, setMode] = useState('off')
+  // What the engine is doing: 'idle', 'loading' (first start), 'waiting-for-tap' (browser wants a click first), 'listening'.
+  const [engineState, setEngineState] = useState('idle')
   const [caption, setCaption] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [showHelp, setShowHelp] = useState(false)
-  const recognition = useRef(null)
+  const engine = useRef(null)
   const modeRef = useRef('off')
   // True when the person tapped the mic, so errors are shown. A silent start on page load stays quiet.
   const startedByTap = useRef(false)
-  const restartTimer = useRef(null)
-  // When commands were last enabled. The same "enable voice command" often arrives twice (early, then final).
-  const enabledAt = useRef(0)
+  const earlyTimer = useRef(null)
+  // The sentence being spoken right now was already acted on early, so its final result is skipped.
+  const handledEarly = useRef(false)
   // The speech engine keeps its first callbacks, so it reads the newest props from here.
   const latest = useRef({})
 
@@ -114,15 +142,24 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
   // Open the mic as soon as the app opens, in the mode chosen last time (standby for new visitors).
   useEffect(() => {
     const saved = readSavedMode()
-    if (Recognition && saved !== 'off') startListening(saved, false)
+    if (SUPPORTED && saved !== 'off') startListening(saved, false)
     return () => {
-      clearTimeout(restartTimer.current)
+      clearTimeout(earlyTimer.current)
       modeRef.current = 'off'
-      recognition.current?.abort()
-      recognition.current = null
+      engine.current?.stop()
+      engine.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // What the engine listens for. Telling it the exact phrases to expect makes it far more accurate:
+  //   standby   only the wake phrases ("enable voice command"); everything else is ignored.
+  //   active    Strelka's command phrases.
+  //   Check-in  any words, so readings and notes like "what happened" can be dictated.
+  useEffect(() => {
+    const phrases = mode === 'standby' ? WAKE_PHRASES : mode === 'active' && tab !== 'checkin' ? COMMAND_PHRASES : null
+    engine.current?.setGrammar(phrases)
+  }, [mode, tab, engineState])
 
   // Errors, and notes shown in standby, clear themselves after a few seconds.
   useEffect(() => {
@@ -152,7 +189,6 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
   }
 
   function enable() {
-    enabledAt.current = Date.now()
     saveMode('active')
     setModeBoth('active')
     setCaption('')
@@ -166,26 +202,38 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     setNote('Voice commands off. Say “enable voice command” to turn them back on.')
   }
 
-  function handle(sentence) {
+  // Whether the engine is limited to a phrase list right now (standby, or commands outside Check-in).
+  function isStrict() {
+    return modeRef.current === 'standby' || (modeRef.current === 'active' && latest.current.tab !== 'checkin')
+  }
+
+  function isKnownPhrase(sentence) {
+    const text = sentence.toLowerCase().trim()
+    return modeRef.current === 'standby' ? KNOWN_WAKE.has(text) : KNOWN_COMMANDS.has(text)
+  }
+
+  function handle(sentence, confidence = 1) {
+    // Against a phrase list, ignore anything that isn't an exact phrase heard with confidence (background talk).
+    if (isStrict() && (!isKnownPhrase(sentence) || confidence < MIN_CONFIDENCE)) return
+
     if (MIC_OFF.test(sentence)) return turnOff()
 
+    // Exact phrases parse directly. Free speech (Check-in) is forgiven: "hard rate sixty two" still works.
+    const command = isStrict() ? parseCommand(sentence) : matchCommand(sentence)
+
     if (modeRef.current === 'standby') {
-      if (ENABLE.test(sentence)) enable()
+      if (ENABLE.test(sentence) || command?.type === 'voiceOn') enable()
       return
     }
 
-    if (DISABLE.test(sentence)) return disable()
-    if (ENABLE.test(sentence)) {
-      if (Date.now() - enabledAt.current > 3000) setNote('Voice commands are already on.')
-      return
-    }
+    if (DISABLE.test(sentence) || command?.type === 'voiceOff') return disable()
+    if (ENABLE.test(sentence) || command?.type === 'voiceOn') return setNote('Voice commands are already on.')
 
     const current = latest.current
-    const command = parseCommand(sentence)
 
     // On the Check-in page, readings, symptoms and anything that isn't a command go to the open form.
     // The form answers with a notice saying what it filled in.
-    const heard = parseVoice(sentence)
+    const heard = matchReadings(sentence)
     const readingIds = Object.keys(heard.values).filter((id) => INDICATOR_BY_ID[id] && isPossible(INDICATOR_BY_ID[id], heard.values[id]))
     const hasReadings = readingIds.length > 0 || heard.symptoms.length > 0
 
@@ -197,7 +245,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     }
 
     if (!command) {
-      if (current.tab !== 'checkin' && !hasReadings) setNote(`Didn't catch that: “${sentence}”. Say “help” for ideas.`)
+      if (!isStrict() && current.tab !== 'checkin' && !hasReadings) setNote(`Didn't catch that: “${sentence}”. Say “help” for ideas.`)
       return
     }
 
@@ -212,7 +260,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     }
     if (current.tab === page) return send()
     current.actions.navigate(page)
-    setTimeout(send, 400)
+    afterRender(send)
   }
 
   function run(command, current) {
@@ -230,6 +278,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
         break
       case 'close':
         if (!sendVoice('close')) setNote('Nothing is open to close.')
+        else setNote('Closed')
         break
       case 'back':
         // Close what's open first; otherwise go to the previous page.
@@ -276,12 +325,14 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
         setNote(`Mission: ${command.key}`)
         break
       case 'openCard':
+        setNote(`Opening ${CARD_NAMES[command.card] ?? 'card'}`)
         onPage('today', 'open-card', { card: command.card }, 'Nothing to open yet. Do a check-in first.')
         break
       case 'reading':
         onPage('today', 'reading', { id: command.id }, 'No readings to show yet.')
         break
       case 'layout':
+        setNote(command.layout === 'list' ? 'List view' : 'Grid view')
         onPage('today', 'layout', { layout: command.layout }, 'The layout changes once you have a check-in.')
         break
       case 'todo':
@@ -294,6 +345,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
         onPage('today', 'why', {}, 'Do a check-in first to see this.')
         break
       case 'showDay':
+        setNote(`Showing day ${command.day}`)
         onPage('history', 'show-day', { day: command.day })
         break
       case 'editDay':
@@ -331,7 +383,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
         } else {
           setNote('Checking…')
           // A short wait lets the numbers just spoken reach the form before it is checked.
-          setTimeout(() => window.dispatchEvent(new Event('strelka:save')), 400)
+          afterRender(() => window.dispatchEvent(new Event('strelka:save')))
         }
         break
       case 'breathe':
@@ -353,63 +405,63 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     startedByTap.current = byTap
     setError('')
     setModeBoth(nextMode)
-    if (recognition.current) return
+    if (engine.current) return
 
-    const rec = new Recognition()
-    rec.lang = 'en-US'
-    rec.continuous = true
-    rec.interimResults = true
-    rec.onresult = (event) => {
-      if (recognition.current !== rec) return
-      let interim = ''
-      for (let index = event.resultIndex; index < event.results.length; index++) {
-        const result = event.results[index]
-        const sentence = result[0].transcript.trim()
-        if (result.isFinal) {
-          handle(sentence)
-          setCaption('')
-        } else if (modeRef.current === 'standby' && ENABLE.test(sentence)) {
+    engine.current = createVoiceEngine({
+      onPartial: (text) => {
+        if (modeRef.current === 'standby') {
           // React to "enable voice command" as soon as it is heard, without waiting for the pause after it.
-          enable()
-        } else if (modeRef.current === 'active') {
-          interim += `${sentence} `
+          if (KNOWN_WAKE.has(text) && ENABLE.test(text) && !handledEarly.current) {
+            handledEarly.current = true
+            enable()
+          }
+          return
         }
-      }
-      if (interim) setCaption(interim.trim())
-    }
-    rec.onerror = (event) => {
-      if (recognition.current !== rec) return
-      if (event.error === 'no-speech' || event.error === 'aborted') return
-      const message = ERRORS[event.error] ?? 'Voice stopped. Tap the mic to try again.'
-      // A silent start on page load fails quietly; a tap shows what went wrong.
-      closeMic()
-      if (startedByTap.current) setError(message)
-    }
-    // Browsers stop listening every so often, so listening restarts until the mic is turned off.
-    rec.onend = () => {
-      if (recognition.current !== rec || modeRef.current === 'off') return
-      clearTimeout(restartTimer.current)
-      restartTimer.current = setTimeout(() => {
-        try {
-          rec.start()
-        } catch {
-          // Already running, or the browser refused; try again on the next end event.
-        }
-      }, RESTART_DELAY_MS)
-    }
-    recognition.current = rec
-    try {
-      rec.start()
-    } catch {
-      closeMic()
-    }
+        if (modeRef.current !== 'active') return
+        setCaption(text)
+        runEarlyWhenSteady(text)
+      },
+      onFinal: (text, confidence) => {
+        clearTimeout(earlyTimer.current)
+        setCaption('')
+        const skip = handledEarly.current
+        handledEarly.current = false
+        window.__strelkaVoiceLog?.push({ text, confidence: Number(confidence.toFixed(2)), mode: modeRef.current })
+        if (!skip) handle(text, confidence)
+      },
+      onError: (code) => {
+        // A silent start on page load fails quietly; a tap shows what went wrong.
+        const message = ERRORS[code] ?? 'Voice stopped. Tap the mic to try again.'
+        closeMic()
+        if (startedByTap.current || code === 'model') setError(message)
+      },
+      onStateChange: setEngineState,
+    })
+    engine.current.start()
+  }
+
+  // Short commands without numbers ("go to body", "close", "list view") run as soon as the words stop changing,
+  // instead of waiting for the pause at the end of the sentence.
+  function runEarlyWhenSteady(text) {
+    clearTimeout(earlyTimer.current)
+    if (handledEarly.current || /\d/.test(text)) return
+    if (isStrict() && !KNOWN_COMMANDS.has(text)) return
+    const command = parseCommand(text)
+    if (!command || !EARLY_COMMANDS.has(command.type)) return
+    earlyTimer.current = setTimeout(() => {
+      if (modeRef.current !== 'active' || handledEarly.current) return
+      handledEarly.current = true
+      setCaption('')
+      handle(text)
+    }, STEADY_MS)
   }
 
   function closeMic() {
-    clearTimeout(restartTimer.current)
+    clearTimeout(earlyTimer.current)
     setModeBoth('off')
-    recognition.current?.abort()
-    recognition.current = null
+    engine.current?.stop()
+    engine.current = null
+    setEngineState('idle')
     setCaption('')
   }
 
@@ -429,11 +481,13 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     }
   }
 
-  if (!Recognition) return null
+  if (!SUPPORTED) return null
 
   // One line only: an error, what is being heard, the result of a command, or the listening state.
-  const line = error || (caption ? `“${caption}”` : note) || (mode === 'active' ? 'Strelka is listening…' : '')
-  const showLine = Boolean(error || (mode === 'active' && line) || (mode === 'standby' && note))
+  const engineLine =
+    engineState === 'loading' ? 'Loading voice…' : engineState === 'waiting-for-tap' ? 'Click anywhere to start listening.' : ''
+  const line = error || (caption ? `“${caption}”` : note) || engineLine || (mode === 'active' ? 'Strelka is listening…' : '')
+  const showLine = Boolean(error || engineLine || (mode === 'active' && line) || (mode === 'standby' && note))
 
   const buttonLabel = {
     off: 'Turn on voice commands',

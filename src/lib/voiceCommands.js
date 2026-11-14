@@ -122,9 +122,14 @@ function firstMatch(text, table) {
   return table.find(([, pattern]) => pattern.test(text))?.[0] ?? null
 }
 
+// Speech engines often hear "to" as "two" or "too" ("go two body"). Fix it before numbers are converted.
+export function fixTo(text) {
+  return text.replace(/\b(go|back|switch|navigate|take me|scroll|jump|change|set|move|bring me)\s+(two|too)\b/gi, '$1 to')
+}
+
 export function cleanSpoken(spoken) {
   // normalize() turns "day one" into "day 1", so spoken and typed numbers both work.
-  return normalize(spoken ?? '')
+  return normalize(fixTo(spoken ?? ''))
     .replace(/[.,!?]/g, ' ')
     .replace(/\b(?:hey|ok|okay)\s+strelka\b|\bstrelka\b/g, ' ')
     .replace(/^(please|can you|could you|i want to|i'd like to|let's|lets)\s+/, '')
@@ -272,8 +277,9 @@ export function parseCommand(spoken) {
   const region = firstMatch(text, REGION_WORDS)
   if (region && GO_WORDS.test(text)) return { type: 'region', key: region }
 
-  // Tabs: "go to body", "open history", "go to relax", or just the tab's name.
-  if (GO_WORDS.test(text) || /^(today|dashboard|home|body|history|relax(ing|ation)?|check[\s-]?in)$/.test(text)) {
+  // Tabs: "go to body", "open history", "go to relax". A verb is needed: a lone "today" or "relax"
+  // turns up too easily in normal conversation.
+  if (GO_WORDS.test(text)) {
     for (const [tab, pattern] of Object.entries(TAB_WORDS)) {
       if (pattern.test(text)) return { type: 'navigate', tab }
     }

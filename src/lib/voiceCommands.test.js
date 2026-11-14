@@ -9,7 +9,7 @@ describe('voice commands on every page', () => {
     ['start check-in', { type: 'navigate', tab: 'checkin' }],
     ['go to body', { type: 'navigate', tab: 'body' }],
     ['open history', { type: 'navigate', tab: 'history' }],
-    ['relax', { type: 'navigate', tab: 'relax' }],
+    ['go to relax', { type: 'navigate', tab: 'relax' }],
     ['show brain', { type: 'region', key: 'brain' }],
     ['switch to mars surface', { type: 'mission', key: 'mars surface' }],
     ['dark mode', { type: 'theme', theme: 'dark' }],
@@ -118,7 +118,7 @@ describe('every action on the site by voice', () => {
     ['go to the top', { type: 'scroll', to: 'top' }],
     ['scroll to the bottom', { type: 'scroll', to: 'bottom' }],
     ['go home', { type: 'navigate', tab: 'today' }],
-    ['history', { type: 'navigate', tab: 'history' }],
+    ['open history', { type: 'navigate', tab: 'history' }],
     ['help', { type: 'help' }],
     ['what can I say', { type: 'help' }],
     // Today
@@ -157,5 +157,18 @@ describe('every action on the site by voice', () => {
     expect(parseCommand('show heart')).toEqual({ type: 'region', key: 'heart' })
     expect(parseCommand('show brain')).toEqual({ type: 'region', key: 'brain' })
     expect(parseCommand('save report')).toEqual({ type: 'save' })
+  })
+})
+
+describe('on-device speech output', () => {
+  it('reads "two" after go as "to"', () => {
+    expect(parseCommand('go two body')).toEqual({ type: 'navigate', tab: 'body' })
+    expect(parseCommand('switch too grid view')).toEqual({ type: 'layout', layout: 'grid' })
+  })
+  it('still reads real numbers', () => {
+    expect(parseCommand('show day two')).toEqual({ type: 'showDay', day: 2 })
+  })
+  it('reads hundreds in readings', () => {
+    expect(parseVoice('blood pressure one hundred eighteen over seventy six').values).toMatchObject({ sbp: 118, dbp: 76 })
   })
 })
