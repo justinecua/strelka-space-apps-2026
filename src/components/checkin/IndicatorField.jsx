@@ -75,7 +75,7 @@ export default function IndicatorField({ indicator, value, baselineValue, onChan
                 step="1"
                 value={hours}
                 onChange={(event) => handleDurationChange('hours', event.target.value)}
-                className="w-20 rounded-full bg-field px-3 py-2.5 text-right text-lg tabular-nums outline-none focus:ring-2 focus:ring-ink"
+                className="w-20 rounded-full bg-field px-3 pl-7 py-2.5 text-center text-lg tabular-nums outline-none focus:ring-2 focus:ring-ink"
                 aria-label={`${indicator.label} hours`}
               />
               <span className="text-sm text-muted">h</span>
@@ -90,7 +90,7 @@ export default function IndicatorField({ indicator, value, baselineValue, onChan
                 step="1"
                 value={minutes}
                 onChange={(event) => handleDurationChange('minutes', event.target.value)}
-                className="w-20 rounded-full bg-field px-3 py-2.5 text-right text-lg tabular-nums outline-none focus:ring-2 focus:ring-ink"
+                className="w-20 rounded-full bg-field px-3 pl-7 py-2.5 text-center text-lg tabular-nums outline-none focus:ring-2 focus:ring-ink"
                 aria-label={`${indicator.label} minutes`}
               />
               <span className="text-sm text-muted">min</span>
