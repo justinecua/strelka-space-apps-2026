@@ -1,22 +1,29 @@
 // A 2-minute guided breathing break. Breathe in for 4 seconds, out for 6, and repeat.
 // Used on the Relax page. Voice commands "start breathing" and "stop relax" control it through window events.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Button from '../ui/Button.jsx'
 import Card from '../ui/Card.jsx'
 
 const IN_SECONDS = 4
 const OUT_SECONDS = 6
 const TOTAL_SECONDS = 120
+const CYCLE_SECONDS = IN_SECONDS + OUT_SECONDS
 
 export default function StressBreak() {
   const [running, setRunning] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const startedAt = useRef(0)
 
-  // Count one second at a time while the break is running.
+  // Track elapsed time from the real clock, so the count stays correct even if the
+  // browser slows timers down (for example when the tab is in the background).
   useEffect(() => {
     if (!running) return undefined
-    const timer = setInterval(() => setElapsed((seconds) => seconds + 1), 1000)
+    startedAt.current = Date.now()
+    setElapsed(0)
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt.current) / 1000))
+    }, 250)
     return () => clearInterval(timer)
   }, [running])
 
@@ -28,8 +35,7 @@ export default function StressBreak() {
   // Voice: "start breathing" sends action "start", and "stop relax" sends action "stop".
   useEffect(() => {
     function onBreathing(event) {
-      if (event.detail.action === 'start') {
-        setElapsed(0)
+      if (event.detail?.action === 'start') {
         setRunning(true)
       } else {
         setRunning(false)
@@ -39,17 +45,26 @@ export default function StressBreak() {
     return () => window.removeEventListener('strelka:breathing', onBreathing)
   }, [])
 
-  const cycle = IN_SECONDS + OUT_SECONDS
-  const breathingIn = elapsed % cycle < IN_SECONDS
+  const breathingIn = elapsed % CYCLE_SECONDS < IN_SECONDS
   const done = !running && elapsed >= TOTAL_SECONDS
+  const secondsLeft = Math.max(TOTAL_SECONDS - elapsed, 0)
 
   function start() {
-    setElapsed(0)
     setRunning(true)
   }
 
   function stop() {
     setRunning(false)
+  }
+
+  const label = running ? (breathingIn ? 'Breathe in' : 'Breathe out') : done ? 'Well done' : 'Ready'
+
+  // The circle grows over the 4-second inhale and shrinks over the 6-second exhale.
+  // The ring uses the text color, so the circle stays visible in both light and dark mode.
+  const circleStyle = {
+    transform: running ? (breathingIn ? 'scale(1.25)' : 'scale(0.9)') : 'scale(1)',
+    transitionDuration: `${running && !breathingIn ? OUT_SECONDS : IN_SECONDS}s`,
+    boxShadow: '0 0 0 2px color-mix(in srgb, currentColor 40%, transparent)',
   }
 
   return (
@@ -59,12 +74,12 @@ export default function StressBreak() {
       <div className="my-6 flex flex-col items-center gap-3">
         <div
           aria-live="polite"
-          className="grid h-40 w-40 place-items-center rounded-full bg-good-soft text-xl transition-transform duration-[4000ms] ease-in-out"
-          style={{ transform: running ? (breathingIn ? 'scale(1.25)' : 'scale(0.9)') : 'scale(1)' }}
+          className="grid h-40 w-40 place-items-center rounded-full bg-good-soft text-xl transition-transform ease-in-out motion-reduce:transition-none"
+          style={circleStyle}
         >
-          {running ? (breathingIn ? 'Breathe in' : 'Breathe out') : done ? 'Well done' : 'Ready'}
+          {label}
         </div>
-        {running && <p className="text-sm text-muted">{TOTAL_SECONDS - elapsed} seconds left</p>}
+        {running && <p className="text-sm text-muted">{secondsLeft} seconds left</p>}
       </div>
 
       {running ? (
