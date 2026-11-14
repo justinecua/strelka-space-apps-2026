@@ -23,3 +23,11 @@ describe('filling check-in fields by voice', () => {
     expect(dictateFields(CHECKIN_TYPES.morning, 'treadmill severity 4')).toEqual({})
   })
 })
+
+describe('numbers spoken as words (on-device speech)', () => {
+  it('reads minutes, heart rates and severity written as words', () => {
+    expect(dictateFields(CHECKIN_TYPES.exercise, 'treadmill for thirty minutes')).toEqual({ exerciseType: 'treadmill', duration: 30 })
+    expect(dictateFields(CHECKIN_TYPES.exercise, 'recovery one hundred twenty two')).toEqual({ hrRecovery: 122 })
+    expect(dictateFields(CHECKIN_TYPES.symptom, 'severity three')).toEqual({ severity: 3 })
+  })
+})

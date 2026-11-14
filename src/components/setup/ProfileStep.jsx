@@ -7,7 +7,8 @@ import StepHeader from './StepHeader.jsx'
 
 const FIELD = 'mt-2 w-full appearance-none rounded-full bg-field px-5 py-3 outline-none focus:ring-2 focus:ring-ink'
 
-export default function ProfileStep({ onBack, onNext }) {
+// onDemo replaces Back in the desktop app, which opens straight to this step.
+export default function ProfileStep({ onBack, onDemo, onNext }) {
   const [name, setName] = useState('')
   const [missionId, setMissionId] = useState('transit')
   const [startDate, setStartDate] = useState(todayDate())
@@ -60,9 +61,17 @@ export default function ProfileStep({ onBack, onNext }) {
       </label>
 
       <div className="flex justify-between">
-        <button type="button" onClick={onBack} className="no-underline">
-          Back
-        </button>
+        {onBack ? (
+          <button type="button" onClick={onBack} className="no-underline">
+            Back
+          </button>
+        ) : onDemo ? (
+          <button type="button" onClick={onDemo} className="no-underline">
+            Try the demo
+          </button>
+        ) : (
+          <span />
+        )}
         <Button type="submit">Next</Button>
       </div>
     </form>

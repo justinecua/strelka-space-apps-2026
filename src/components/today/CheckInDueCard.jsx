@@ -30,7 +30,7 @@ function copyFor({ isFirst, variant, name }) {
     return {
       step: 'Step 3 of 3',
       title: `Welcome, ${name}. Do your first check-in.`,
-      text: 'It takes about 2 minutes. Your results will appear here.',
+      text: 'Your results will appear here.',
       button: 'Start check-in',
     }
   }
