@@ -49,6 +49,8 @@ const MISSION_WORDS = [
   ['space station', /space station|\bleo\b|\bstation\b/],
 ]
 
+const VOICE_TOGGLE = /^(?:please )?(enable|turn on|start|activate|resume|disable|turn off|deactivate|pause)( the)? voice( commands?| control| mode)?$/
+
 const CHECKIN_TYPE_WORDS = [
   ['symptom', /\bsymptom report\b|\breport (?:a |my )?symptoms?\b|\bsymptom check[\s-]?in\b/],
   ['morning', /\bmorning check[\s-]?in\b/],
@@ -56,8 +58,22 @@ const CHECKIN_TYPE_WORDS = [
   ['evening', /\b(?:before[\s-]?sleep|bedtime|evening|night) check[\s-]?in\b/],
 ]
 
+// Just the name, as on the Check-in tiles: "morning", "post-exercise", "before sleep", "symptom",
+// optionally after "open", "go to", "switch to" and the like.
+const CHECKIN_TILE_NAME =
+  /^(?:(?:open|go to|switch to|show|start|choose|pick|select)\s+(?:the\s+)?)?(morning|post[\s-]?exercise|exercise|workout|before[\s-]?sleep|bedtime|evening|night|symptoms?)(?:\s+(?:check[\s-]?in|report|form))?$/
+
+const TILE_TO_TYPE = { morning: 'morning', exercise: 'exercise', workout: 'exercise', bedtime: 'evening', evening: 'evening', night: 'evening' }
+
 function checkinTypeFrom(text) {
-  return firstMatch(text, CHECKIN_TYPE_WORDS)
+  const named = firstMatch(text, CHECKIN_TYPE_WORDS)
+  if (named) return named
+  const tile = CHECKIN_TILE_NAME.exec(text)?.[1]
+  if (!tile) return null
+  if (/^post/.test(tile)) return 'exercise'
+  if (/^before/.test(tile)) return 'evening'
+  if (/^symptom/.test(tile)) return 'symptom'
+  return TILE_TO_TYPE[tile]
 }
 
 function firstMatch(text, table) {
@@ -71,6 +87,11 @@ export function parseCommand(spoken) {
     .replace(/\b(?:hey|ok|okay)\s+strelka\b|\bstrelka\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+
+  // Voice on and off: "enable voice command", "disable voice commands", "turn off voice control".
+  // Checked first, so "turn off voice" never reads as "stop".
+  const voiceToggle = VOICE_TOGGLE.exec(text)
+  if (voiceToggle) return { type: /^(enable|turn on|start|activate|resume)$/.test(voiceToggle[1]) ? 'voiceOn' : 'voiceOff' }
 
   // Stop turns the microphone off. "stop relax" is handled below, so it does not switch the mic off.
   if (/^(stop|stop listening|turn off|close)$/.test(text)) return { type: 'stop' }
@@ -111,7 +132,7 @@ export function parseCommand(spoken) {
 
   // Save counts only at the end, so it can follow a reading: "mood 4, save check-in".
   // "save changes" and "save edits" are accepted for editing. "safe" is a common mishearing of "save".
-  if (/\b(save|safe|submit)( (my|the))?( check[\s-]?in| form| it| changes| edits| edit)?$/.test(text)) {
+  if (/\b(save|safe|submit|send|review)( (my|the))?( check[\s-]?in| form| it| changes| edits| edit| report)?$/.test(text)) {
     return { type: 'save' }
   }
 

@@ -1,11 +1,12 @@
 // One check-in, in two steps: fill in the fields, then review and submit.
 // The parent gives it a new key after each submit, so the form starts fresh for the next check-in.
-// The floating microphone can fill readings ("heart rate 62") and say "save" to review, then "save" again to submit.
+// The microphone can fill any field ("heart rate 62", "treadmill", "severity 3"), then "review" and "submit".
 
 import { useEffect, useRef, useState } from 'react'
 import { allFields } from '../../data/checkinTypes.js'
 import { cleanValues, fieldLabel, missingFields, reviewRows, skippedLabels, startingValues } from '../../lib/checkinForm.js'
 import { STATUS } from '../../lib/ui.js'
+import { dictateFields } from '../../lib/voiceForm.js'
 import Button from '../ui/Button.jsx'
 import Card from '../ui/Card.jsx'
 import FormField from './FormField.jsx'
@@ -94,39 +95,50 @@ export default function CheckInForm({ type, baseline, onSubmit }) {
     const fields = allFields(type)
 
     function onVoice(event) {
-      const { values: spoken, symptoms: heard } = event.detail
-      const filled = {}
+      const { values: spoken, symptoms: heard, sentence } = event.detail
+      const current = latest.current.values
+
+      // Words like "treadmill", "severity 3", "it hurts in my left knee" or "notes ...".
+      const filled = dictateFields(type, sentence, current)
+
       for (const field of fields) {
         const source = field.indicator ?? field.key
         if (field.kind === 'indicator' && spoken[source] != null) filled[field.key] = spoken[source]
       }
       // Post-exercise: the first heart rate is the one right after exercise, the next one is the recovery.
       if (type.id === 'exercise') {
-        const current = latest.current.values
         if (spoken.exercise != null) filled.duration = spoken.exercise
-        if (spoken.hr != null) filled[current.hrPost == null ? 'hrPost' : 'hrRecovery'] = spoken.hr
+        if (spoken.hr != null && filled.hrPost == null && filled.hrRecovery == null) {
+          filled[current.hrPost == null ? 'hrPost' : 'hrRecovery'] = spoken.hr
+        }
         if (spoken.fatigue != null) filled.fatigue = spoken.fatigue
       }
 
-      const toggleFields = fields.filter((field) => field.kind === 'toggles')
+      // Symptoms with their own yes/no buttons (headache, dizziness, trouble breathing) go there first,
+      // the rest into the symptom list, or into the single symptom choice of a symptom report.
+      let rest = heard
+      for (const field of fields.filter((item) => item.kind === 'toggles')) {
+        const ids = field.options.map((option) => option.id)
+        const matches = heard.filter((id) => ids.includes(id))
+        if (matches.length > 0) filled[field.key] = [...new Set([...(current[field.key] ?? []), ...matches])]
+        rest = rest.filter((id) => !ids.includes(id))
+      }
       const symptomField = fields.find((field) => field.kind === 'symptoms')
-      const choiceField = type.id === 'symptom' && fields.find((field) => field.key === 'symptom')
+      if (symptomField && rest.length > 0) filled[symptomField.key] = [...new Set([...(current[symptomField.key] ?? []), ...rest])]
+      if (type.id === 'symptom' && heard.length > 0 && !current.symptom) filled.symptom = heard[0]
 
-      setValues((current) => {
-        const next = { ...current, ...filled }
-        let rest = heard
-        // Symptoms with their own yes/no buttons (headache, dizziness, trouble breathing) go there first.
-        for (const field of toggleFields) {
-          const ids = field.options.map((option) => option.id)
-          const matches = heard.filter((id) => ids.includes(id))
-          if (matches.length > 0) next[field.key] = [...new Set([...(current[field.key] ?? []), ...matches])]
-          rest = rest.filter((id) => !ids.includes(id))
-        }
-        if (symptomField && rest.length > 0) next[symptomField.key] = [...new Set([...(current[symptomField.key] ?? []), ...rest])]
-        if (choiceField && heard.length > 0 && !current.symptom) next.symptom = heard[0]
-        return next
-      })
-      if (Object.keys(filled).length > 0 || heard.length > 0) setVoiceNote('Added by voice. Check the values, then say "save".')
+      const keys = Object.keys(filled)
+      if (keys.length === 0) {
+        if (sentence) window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message: `Didn't catch that: “${sentence}”` } }))
+        return
+      }
+
+      setValues((latestValues) => ({ ...latestValues, ...filled }))
+      setProblem(null)
+      if (latest.current.step === 'review') setStep('edit')
+      const names = keys.map((key) => fieldLabel(fields.find((field) => field.key === key)))
+      setVoiceNote(`Added by voice: ${names.join(', ')}. Say “review” when you're done.`)
+      window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message: `Added: ${names.join(', ')}` } }))
     }
 
     function onSave() {

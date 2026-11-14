@@ -1,5 +1,10 @@
-// The microphone at the right end of the bottom navigation. Its panel opens above it. Tap it once, then speak: open pages, show body regions, switch missions,
-// switch light or dark mode, record readings, save or cancel, edit or delete past days, and export PDF.
+// The microphone at the right end of the bottom navigation. One line above it says what is happening.
+// Three modes:
+//   off       the mic is closed. Tap it to start.
+//   active    "Strelka is listening…". Every command works: pages, body regions, missions, theme,
+//             check-ins and their fields, save or cancel, past days, export, breathing.
+//   paused    after 5 seconds of silence, or "disable voice command". The mic stays open but only
+//             reacts to "enable voice command" (or "hey Strelka"). "stop" or a tap turns it fully off.
 // Pages receive commands through props and window events.
 
 import { useEffect, useRef, useState } from 'react'
@@ -9,14 +14,8 @@ import { parseVoice } from '../../lib/voiceParser.js'
 
 const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
 
-// One example phrase per page, shown when the mic turns on.
-const EXAMPLE = {
-  today: 'go to body',
-  checkin: 'heart rate 62',
-  body: 'show brain',
-  history: 'export PDF',
-  relax: 'start breathing',
-}
+const SILENCE_MS = 5000
+const NOTE_MS = 4000
 
 // Short messages for the speech errors people actually hit.
 // "network" is what Brave and some other browsers report, because they block the online speech service.
@@ -29,19 +28,25 @@ const ERRORS = {
 
 const TAB_NAMES = { today: 'Today', checkin: 'Check-in', body: 'Body', relax: 'Relax', history: 'History' }
 const CHECKIN_NAMES = { morning: 'morning check-in', exercise: 'post-exercise check-in', evening: 'before-sleep check-in', symptom: 'symptom report' }
-
+const PAUSED_HINT = 'Paused. Say “enable voice command” to continue.'
 
 function isPossible(indicator, value) {
   return !((indicator.validMin != null && value < indicator.validMin) || (indicator.validMax != null && value > indicator.validMax))
 }
 
+// While paused, only these wake the assistant up.
+function isWakeUp(sentence) {
+  return parseCommand(sentence)?.type === 'voiceOn' || /\b(hey|ok|okay)\s+strelka\b/i.test(sentence)
+}
+
 export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay, onRegion, onMission, onTheme }) {
-  const [on, setOn] = useState(false)
+  const [mode, setMode] = useState('off')
   const [caption, setCaption] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const recognition = useRef(null)
-  const wantOn = useRef(false)
+  const modeRef = useRef('off')
+  const silenceTimer = useRef(null)
   // The speech engine keeps its first callbacks, so it reads the newest props from here.
   const latest = useRef({})
 
@@ -63,20 +68,27 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
 
   useEffect(
     () => () => {
-      wantOn.current = false
+      clearTimeout(silenceTimer.current)
+      modeRef.current = 'off'
       recognition.current?.abort()
     },
     [],
   )
 
-  // An error message clears itself after a few seconds.
+  // Errors, and notes shown while paused, clear themselves after a few seconds.
   useEffect(() => {
     if (!error) return
     const timer = setTimeout(() => setError(''), 6000)
     return () => clearTimeout(timer)
   }, [error])
 
-  // The check-in page reports problems (like missing fields) here, so they show next to the microphone.
+  useEffect(() => {
+    if (mode !== 'paused' || !note) return
+    const timer = setTimeout(() => setNote(''), NOTE_MS)
+    return () => clearTimeout(timer)
+  }, [mode, note])
+
+  // The check-in page reports what it filled in (or what is missing) here.
   useEffect(() => {
     function onNotice(event) {
       setNote(event.detail.message)
@@ -85,33 +97,69 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
     return () => window.removeEventListener('strelka:notice', onNotice)
   }, [])
 
-  function handle(sentence) {
-    const current = latest.current
+  function setModeBoth(next) {
+    modeRef.current = next
+    setMode(next)
+  }
 
-    // Readings are recorded only on the check-in page.
-    const heard = parseVoice(sentence)
-    const readingIds = Object.keys(heard.values).filter((id) => INDICATOR_BY_ID[id] && isPossible(INDICATOR_BY_ID[id], heard.values[id]))
-    if (readingIds.length > 0 || heard.symptoms.length > 0) {
-      if (current.tab === 'checkin') {
-        const values = Object.fromEntries(readingIds.map((id) => [id, heard.values[id]]))
-        window.dispatchEvent(new CustomEvent('strelka:voice', { detail: { values, symptoms: heard.symptoms } }))
-        const names = [...readingIds.map((id) => INDICATOR_BY_ID[id].label), ...heard.symptoms.map(() => 'symptom')]
-        setNote(`Added: ${names.join(', ')}`)
-      } else {
-        setNote('Open Check-in first to record readings.')
-      }
+  // Each sound restarts the 5-second countdown. When it runs out, the assistant pauses.
+  function restartSilenceTimer() {
+    clearTimeout(silenceTimer.current)
+    silenceTimer.current = setTimeout(() => {
+      if (modeRef.current === 'active') pause()
+    }, SILENCE_MS)
+  }
+
+  function activate(message = '') {
+    setModeBoth('active')
+    setNote(message)
+    restartSilenceTimer()
+  }
+
+  function pause() {
+    clearTimeout(silenceTimer.current)
+    setModeBoth('paused')
+    setCaption('')
+    setNote(PAUSED_HINT)
+  }
+
+  function handle(sentence) {
+    if (modeRef.current === 'paused') {
+      if (isWakeUp(sentence)) activate()
+      else if (parseCommand(sentence)?.type === 'stop') turnOff()
+      return
     }
 
+    const current = latest.current
     const command = parseCommand(sentence)
+
+    // On the Check-in page, readings, symptoms and anything that isn't a command go to the open form.
+    // The form answers with a notice saying what it filled in.
+    const heard = parseVoice(sentence)
+    const readingIds = Object.keys(heard.values).filter((id) => INDICATOR_BY_ID[id] && isPossible(INDICATOR_BY_ID[id], heard.values[id]))
+    const hasReadings = readingIds.length > 0 || heard.symptoms.length > 0
+
+    if (current.tab === 'checkin' && (hasReadings || !command)) {
+      const values = Object.fromEntries(readingIds.map((id) => [id, heard.values[id]]))
+      window.dispatchEvent(new CustomEvent('strelka:voice', { detail: { values, symptoms: heard.symptoms, sentence: command ? '' : sentence } }))
+    } else if (hasReadings) {
+      setNote('Open Check-in first to record readings.')
+    }
+
     if (!command) {
-      // Show what was heard, so you can see why nothing happened.
-      if (readingIds.length === 0 && heard.symptoms.length === 0) setNote(`Didn't catch a command: “${sentence}”`)
+      if (current.tab !== 'checkin' && !hasReadings) setNote(`Didn't catch that: “${sentence}”`)
       return
     }
 
     switch (command.type) {
       case 'stop':
         turnOff()
+        break
+      case 'voiceOff':
+        pause()
+        break
+      case 'voiceOn':
+        setNote('Strelka is already listening.')
         break
       case 'theme':
         current.onTheme(command.theme)
@@ -153,16 +201,15 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
         if (current.tab !== 'checkin') {
           setNote('Nothing to cancel here.')
         } else {
-          setNote('Cancelling…')
           window.dispatchEvent(new Event('strelka:cancel'))
         }
         break
       case 'save':
         if (current.tab !== 'checkin') {
-          setNote('Open the check-in first, then say “save check-in”.')
+          setNote('Open Check-in first, then say “review”.')
         } else {
           setNote('Checking…')
-          // A short wait lets the numbers just spoken reach the form before it is submitted.
+          // A short wait lets the numbers just spoken reach the form before it is checked.
           setTimeout(() => window.dispatchEvent(new Event('strelka:save')), 400)
         }
         break
@@ -184,13 +231,12 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
 
   function turnOn() {
     setError('')
-    setNote('')
-    wantOn.current = true
     const rec = new Recognition()
     rec.lang = 'en-US'
     rec.continuous = true
     rec.interimResults = true
     rec.onresult = (event) => {
+      if (modeRef.current === 'active') restartSilenceTimer()
       let interim = ''
       for (let index = event.resultIndex; index < event.results.length; index++) {
         const result = event.results[index]
@@ -198,7 +244,7 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
         if (result.isFinal) {
           handle(sentence)
           setCaption('')
-        } else {
+        } else if (modeRef.current === 'active') {
           interim += `${sentence} `
         }
       }
@@ -206,61 +252,76 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
     }
     rec.onerror = (event) => {
       if (event.error === 'no-speech' || event.error === 'aborted') return
-      wantOn.current = false
-      setOn(false)
+      turnOff()
       setError(ERRORS[event.error] ?? 'Voice stopped. Tap the mic to try again.')
     }
-    // Browsers stop listening after a pause, so listening restarts until the astronaut says "stop".
+    // Browsers stop listening after a pause, so listening restarts until the mic is turned off.
     rec.onend = () => {
-      if (!wantOn.current) return setOn(false)
+      if (modeRef.current === 'off') return
       try {
         rec.start()
       } catch {
-        setOn(false)
+        turnOff()
       }
     }
     rec.start()
     recognition.current = rec
-    setOn(true)
+    activate()
   }
 
   function turnOff() {
-    wantOn.current = false
+    clearTimeout(silenceTimer.current)
+    setModeBoth('off')
     recognition.current?.abort()
-    setOn(false)
     setCaption('')
+    setNote('')
+  }
+
+  function handleClick() {
+    if (mode === 'off') turnOn()
+    else if (mode === 'paused') activate()
+    else turnOff()
   }
 
   if (!Recognition) return null
 
-  // One line only: what was just heard, the result of a command, or an example to try.
-  const line = error || caption || note || `Try “${EXAMPLE[tab] ?? EXAMPLE.today}”`
+  // One line only: an error, what is being heard, the result of a command, or the listening state.
+  const line = error || (caption ? `“${caption}”` : note) || (mode === 'active' ? 'Strelka is listening…' : '')
+  const showLine = Boolean(error || (mode === 'active' && line) || (mode === 'paused' && note))
+
+  const buttonLabel = { off: 'Talk to Strelka', active: 'Stop listening', paused: 'Resume listening' }[mode]
 
   return (
     <div className="relative flex items-center gap-1.5">
       <span className="mx-0.5 h-7 w-px bg-ink/10" aria-hidden="true" />
-      {(on || error) && (
+      {showLine && (
         <p
           role="status"
           aria-live="polite"
-          className={`fade-in absolute right-0 bottom-full mb-3 flex max-w-[min(22rem,calc(100vw-2rem))] items-center gap-2.5 rounded-full bg-white px-4 py-2.5 text-sm whitespace-nowrap shadow-lg ring-1 ring-ink/10 ${
+          className={`fade-in absolute right-0 bottom-full mb-3 flex max-w-[min(24rem,calc(100vw-2rem))] items-center gap-2.5 rounded-full bg-white px-4 py-2.5 text-sm whitespace-nowrap shadow-lg ring-1 ring-ink/10 ${
             error ? 'text-danger' : ''
           }`}
         >
-          {!error && <span className="h-2 w-2 shrink-0 rounded-full bg-good" aria-hidden="true" />}
-          <span className="truncate">{caption ? `“${line}”` : line}</span>
+          {!error && <span className={`h-2 w-2 shrink-0 rounded-full ${mode === 'active' ? 'bg-good' : 'bg-muted'}`} aria-hidden="true" />}
+          <span className="truncate">{line}</span>
         </p>
       )}
 
       <button
         type="button"
-        onClick={on ? turnOff : turnOn}
-        aria-pressed={on}
-        aria-label={on ? 'Stop talking to Strelka' : 'Talk to Strelka'}
-        title={on ? 'Stop listening' : 'Talk to Strelka'}
-        className={`relative grid h-11 w-11 place-items-center rounded-full outline-none ${on ? 'bg-ink text-white' : 'bg-good text-[#0b0c0d] hover:brightness-105'} transition focus-visible:ring-4 focus-visible:ring-good/50 sm:h-12 sm:w-12`}
+        onClick={handleClick}
+        aria-pressed={mode === 'active'}
+        aria-label={buttonLabel}
+        title={buttonLabel}
+        className={`relative grid h-11 w-11 place-items-center rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-good/50 sm:h-12 sm:w-12 ${
+          mode === 'active'
+            ? 'bg-ink text-white'
+            : mode === 'paused'
+              ? 'bg-white text-good-dark ring-2 ring-good'
+              : 'bg-good text-[#0b0c0d] hover:brightness-105'
+        }`}
       >
-        {on ? (
+        {mode === 'active' ? (
           <span className="h-4 w-4 rounded-[4px] bg-current" aria-hidden="true" />
         ) : (
           <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">

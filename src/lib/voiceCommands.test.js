@@ -56,3 +56,35 @@ describe('new readings by voice', () => {
     expect(parseVoice('start breathing').values.resp).toBeUndefined()
   })
 })
+
+describe('voice on and off', () => {
+  it.each([
+    ['enable voice command', 'voiceOn'],
+    ['enable voice commands', 'voiceOn'],
+    ['turn on voice', 'voiceOn'],
+    ['disable voice command', 'voiceOff'],
+    ['turn off voice control', 'voiceOff'],
+    ['pause voice', 'voiceOff'],
+  ])('"%s"', (spoken, type) => {
+    expect(parseCommand(spoken)).toEqual({ type })
+  })
+})
+
+describe('check-in tiles by name', () => {
+  it.each([
+    ['morning', 'morning'],
+    ['post-exercise', 'exercise'],
+    ['post exercise', 'exercise'],
+    ['before sleep', 'evening'],
+    ['switch to before sleep', 'evening'],
+    ['symptom', 'symptom'],
+    ['open symptoms', 'symptom'],
+  ])('"%s"', (spoken, checkin) => {
+    expect(parseCommand(spoken)).toEqual({ type: 'checkinType', checkin })
+  })
+
+  it('"review" and "submit" both move the form on', () => {
+    expect(parseCommand('review')).toEqual({ type: 'save' })
+    expect(parseCommand('submit')).toEqual({ type: 'save' })
+  })
+})
