@@ -36,7 +36,7 @@ export default function ReadingRow({ indicator, reading, state, isOpen, onToggle
       </button>
 
       {isOpen && (
-        <div className="fade-in px-5 pb-5">
+        <div className="fade-in px-5 pt-2 pb-5">
           <p className="text-sm text-muted">{reading.reason}</p>
           <div className="mt-3 rounded-[20px] bg-white p-3">
             <VitalChart indicator={indicator} entries={state.entries} baseline={state.baseline} height={200} />
