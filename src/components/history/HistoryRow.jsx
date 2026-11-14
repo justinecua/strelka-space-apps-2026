@@ -41,7 +41,7 @@ export default function HistoryRow({ entry, tier, isOpen, onToggle, onEdit, onDe
       </button>
 
       {isOpen && (
-        <div className="fade-in space-y-4 px-5 pb-5">
+        <div className="fade-in space-y-4 px-5 pt-4 pb-5">
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {INDICATORS.map((indicator) => (
               <div key={indicator.id} className="rounded-[16px] bg-white p-3">
