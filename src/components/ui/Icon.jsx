@@ -1,6 +1,8 @@
 // One place for every icon in the app. Data files refer to icons by these short names.
 
 import {
+  AppleLogo,
+  ArrowDown,
   ArrowSquareOut,
   ArrowsOutSimple,
   Bone,
@@ -13,10 +15,12 @@ import {
   Copy,
   DownloadSimple,
   Ear,
+  GithubLogo,
   GlobeHemisphereWest,
   Eye,
   Heart,
   Info,
+  Microphone,
   Moon,
   PersonSimple,
   PersonSimpleRun,
@@ -34,7 +38,9 @@ import {
   Trash,
   User,
   UsersThree,
+  WifiSlash,
   Wind,
+  WindowsLogo,
   X,
 } from '@phosphor-icons/react'
 
@@ -75,6 +81,12 @@ const ICONS = {
   target: Target,
   external: ArrowSquareOut,
   expand: ArrowsOutSimple,
+  apple: AppleLogo,
+  github: GithubLogo,
+  windows: WindowsLogo,
+  mic: Microphone,
+  offline: WifiSlash,
+  arrowDown: ArrowDown,
 }
 
 export default function Icon({ name, size = 20, weight = 'light', className = '' }) {
