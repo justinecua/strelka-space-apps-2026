@@ -1,15 +1,23 @@
 {
   "name": "baseline-astronaut-health",
+  "productName": "Strelka",
+  "description": "A daily health check-in for astronauts.",
+  "author": "justinecua",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "desktop": "vite build && electron .",
+    "dist:win": "vite build && electron-builder --win",
+    "dist:mac": "vite build && electron-builder --mac"
   },
   "dependencies": {
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
     "@phosphor-icons/react": "^2.1.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -18,8 +26,45 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",
     "@vitejs/plugin-react": "^4.5.2",
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
     "tailwindcss": "^4.1.11",
     "vite": "^6.3.5",
     "vitest": "^3.2.4"
+  },
+  "allowScripts": {
+    "electron@45.3.2": true
+  },
+  "build": {
+    "appId": "com.strelka.app",
+    "productName": "Strelka",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "Strelka.exe"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png"
+    },
+    "dmg": {
+      "artifactName": "Strelka.dmg"
+    }
   }
 }
