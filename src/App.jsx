@@ -24,6 +24,7 @@ import Today from './pages/Today.jsx'
 import Welcome from './pages/Welcome.jsx'
 import Footer from './components/layout/Footer.jsx'
 
+
 function tabFromUrl() {
   const hash = window.location.hash.replace('#', '')
   return TABS.some((tab) => tab.id === hash) ? hash : 'today'

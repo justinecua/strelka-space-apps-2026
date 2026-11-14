@@ -1,8 +1,10 @@
 export default function Footer() {
+  const year = new Date().getFullYear()
+
   return (
-    <footer className="mt-8 border-t border-line px-4 py-8 text-center">
+    <footer className=" text-center">
       <p className="text-sm text-muted sm:text-base">
-        © 2026 Strelka Space App. All rights reserved.
+        © {year} Strelka Space App. All rights reserved.
       </p>
     </footer>
   )
