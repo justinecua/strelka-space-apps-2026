@@ -71,7 +71,7 @@ export default function StressBreak() {
     <Card title="Take a 2-minute break" tone="mint">
       <p className="text-muted">Breathing slowly can help you relax. Follow the circle.</p>
 
-      <div className="mt-8 mb-2 flex flex-col items-center gap-3">
+      <div className="mt-8 mb-0 flex flex-col items-center gap-3">
         <div
           aria-live="polite"
           className="grid h-40 w-40 place-items-center rounded-full bg-good-soft text-xl transition-transform ease-in-out motion-reduce:transition-none"
