@@ -1,7 +1,6 @@
-// A floating microphone button, always on screen. Tap it once and the astronaut can use the app hands-free:
-// open a tab ("go to body"), start the check-in, say readings ("heart rate 62, I slept 7 hours")
-// and save ("save check-in"). It talks to the check-in page through two window events, so the
-// pages do not need to know about voice.
+// A floating microphone on every page. Tap it once, then speak: open pages, show body regions, switch missions,
+// switch light or dark mode, record readings, save or cancel, edit or delete past days, and export PDF.
+// Pages receive commands through props and window events.
 
 import { useEffect, useRef, useState } from 'react'
 import { INDICATOR_BY_ID } from '../../data/indicators.js'
@@ -10,25 +9,40 @@ import { parseVoice } from '../../lib/voiceParser.js'
 
 const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
 
-const TAB_NAMES = { today: 'Today', checkin: 'Check-in', body: 'Body', history: 'History' }
+const TAB_NAMES = { today: 'Today', checkin: 'Check-in', body: 'Body', relax: 'Relax', history: 'History' }
+
+const HELP = [
+  ['Pages', '“go to body”, “open history”, “start check-in”'],
+  ['Body', '“show brain”, “go to eyes”, “open lungs”'],
+  ['Mission', '“switch to Mars surface”, “lunar orbit”'],
+  ['Theme', '“dark mode”, “light mode”'],
+  ['Readings', '“heart rate 62, I slept 7 hours, mood 4”'],
+  ['Save', '“save check-in”, “save changes”'],
+  ['Cancel', '“cancel” (leaves an edit without saving)'],
+  ['Past days', '“edit day 5”, “delete day 5”'],
+  ['Export', '“export PDF”, “export all”'],
+  ['Off', '“stop”'],
+]
 
 function isPossible(indicator, value) {
   return !((indicator.validMin != null && value < indicator.validMin) || (indicator.validMax != null && value > indicator.validMax))
 }
 
-export default function VoiceAssistant({ tab, onNavigate }) {
+export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay, onRegion, onMission, onTheme }) {
   const [on, setOn] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [caption, setCaption] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const recognition = useRef(null)
   const wantOn = useRef(false)
-  // The speech engine keeps its first callbacks, so it reads the newest tab and navigate function from here.
-  const latest = useRef({ tab, onNavigate })
+  // The speech engine keeps its first callbacks, so it reads the newest props from here.
+  const latest = useRef({})
 
   useEffect(() => {
-    latest.current = { tab, onNavigate }
+    latest.current = { tab, onNavigate, onEditDay, onDeleteDay, onRegion, onMission, onTheme }
   })
+
   useEffect(
     () => () => {
       wantOn.current = false
@@ -47,39 +61,93 @@ export default function VoiceAssistant({ tab, onNavigate }) {
   }, [])
 
   function handle(sentence) {
-    const { tab: currentTab, onNavigate: navigate } = latest.current
+    const current = latest.current
 
-    // Readings are only taken on the check-in page.
-    if (currentTab === 'checkin') {
-      const heard = parseVoice(sentence)
-      const values = {}
-      for (const [id, value] of Object.entries(heard.values)) {
-        const indicator = INDICATOR_BY_ID[id]
-        if (indicator && isPossible(indicator, value)) values[id] = value
-      }
-      const names = [...Object.keys(values).map((id) => INDICATOR_BY_ID[id].label), ...heard.symptoms.map(() => 'symptom')]
-      if (names.length > 0) {
+    // Readings are recorded only on the check-in page.
+    const heard = parseVoice(sentence)
+    const readingIds = Object.keys(heard.values).filter((id) => INDICATOR_BY_ID[id] && isPossible(INDICATOR_BY_ID[id], heard.values[id]))
+    if (readingIds.length > 0 || heard.symptoms.length > 0) {
+      if (current.tab === 'checkin') {
+        const values = Object.fromEntries(readingIds.map((id) => [id, heard.values[id]]))
         window.dispatchEvent(new CustomEvent('strelka:voice', { detail: { values, symptoms: heard.symptoms } }))
+        const names = [...readingIds.map((id) => INDICATOR_BY_ID[id].label), ...heard.symptoms.map(() => 'symptom')]
         setNote(`Added: ${names.join(', ')}`)
+      } else {
+        setNote('Open Check-in first to record readings.')
       }
     }
 
     const command = parseCommand(sentence)
-    if (!command) return
+    if (!command) {
+      // Show what was heard, so you can see why nothing happened.
+      if (readingIds.length === 0 && heard.symptoms.length === 0) setNote(`Didn't catch a command: “${sentence}”`)
+      return
+    }
 
-    if (command.type === 'navigate') {
-      navigate(command.tab)
-      setNote(`Opening ${TAB_NAMES[command.tab]}`)
-    } else if (command.type === 'save') {
-      if (currentTab !== 'checkin') {
-        setNote('Open the check-in first, then say “save check-in”.')
-      } else {
-        setNote('Checking your check-in…')
-        // A short wait lets the numbers just spoken reach the form before it is submitted.
-        setTimeout(() => window.dispatchEvent(new Event('strelka:save')), 400)
-      }
-    } else if (command.type === 'stop') {
-      turnOff()
+    switch (command.type) {
+      case 'stop':
+        turnOff()
+        break
+      case 'theme':
+        current.onTheme(command.theme)
+        setNote(`${command.theme === 'dark' ? 'Dark' : 'Light'} mode on`)
+        break
+      case 'navigate':
+        current.onNavigate(command.tab)
+        setNote(`Opening ${TAB_NAMES[command.tab]}`)
+        break
+      case 'region':
+        current.onRegion(command.key)
+        setNote(`Showing ${command.key}`)
+        break
+      case 'mission':
+        current.onMission(command.key)
+        setNote(`Mission: ${command.key}`)
+        break
+      case 'editDay':
+        setNote(`Opening day ${command.day}`)
+        current.onEditDay(command.day)
+        break
+      case 'deleteDay':
+        setNote(`Deleting day ${command.day}…`)
+        current.onDeleteDay(command.day)
+        break
+      case 'export':
+        // Goes to History first, then asks that page to export. The short wait lets the page mount.
+        current.onNavigate('history')
+        setNote(command.scope === 'all' ? 'Exporting all check-ins…' : 'Exporting the open check-in…')
+        setTimeout(() => window.dispatchEvent(new CustomEvent('strelka:export', { detail: { scope: command.scope } })), 400)
+        break
+      case 'cancel':
+        if (current.tab !== 'checkin') {
+          setNote('Nothing to cancel here.')
+        } else {
+          setNote('Cancelling…')
+          window.dispatchEvent(new Event('strelka:cancel'))
+        }
+        break
+      case 'save':
+        if (current.tab !== 'checkin') {
+          setNote('Open the check-in first, then say “save check-in”.')
+        } else {
+          setNote('Checking your check-in…')
+          // A short wait lets the numbers just spoken reach the form before it is submitted.
+          setTimeout(() => window.dispatchEvent(new Event('strelka:save')), 400)
+        }
+        break
+      case 'breathe':
+        if (command.action === 'start') {
+          // Go to Relax first if needed, then give the page a moment to mount before starting.
+          if (current.tab !== 'relax') current.onNavigate('relax')
+          setNote('Starting breathing…')
+          setTimeout(() => window.dispatchEvent(new CustomEvent('strelka:breathing', { detail: { action: 'start' } })), 400)
+        } else {
+          setNote('Breathing break stopped.')
+          window.dispatchEvent(new CustomEvent('strelka:breathing', { detail: { action: 'stop' } }))
+        }
+        break
+      default:
+        break
     }
   }
 
@@ -111,7 +179,7 @@ export default function VoiceAssistant({ tab, onNavigate }) {
       setOn(false)
       setError(event.error === 'not-allowed' ? 'Microphone is blocked. Allow it in the browser settings.' : 'Voice stopped working. Tap the microphone to try again.')
     }
-    // The browser stops listening after a pause, so listening restarts until the astronaut turns it off.
+    // Browsers stop listening after a pause, so listening restarts until the astronaut says "stop".
     rec.onend = () => {
       if (!wantOn.current) return setOn(false)
       try {
@@ -134,7 +202,12 @@ export default function VoiceAssistant({ tab, onNavigate }) {
 
   if (!Recognition) return null
 
-  const hint = tab === 'checkin' ? 'Say “heart rate 62”, “I slept 7 hours”, then “save check-in”.' : 'Say “go to body”, “open history” or “start check-in”.'
+  const hint =
+    tab === 'checkin'
+      ? 'Say “heart rate 62”, “I slept 7 hours”, then “save check-in”.'
+      : tab === 'body'
+        ? 'Say “show brain” or “go to eyes”.'
+        : 'Say “go to body”, “edit day 1”, “dark mode” or “export PDF”.'
 
   return (
     <div className="fixed left-5 z-50 flex flex-col items-start gap-3" style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}>
@@ -147,6 +220,19 @@ export default function VoiceAssistant({ tab, onNavigate }) {
               <p className="text-sm text-good-dark">Listening…</p>
               <p className="mt-1 text-lg">{caption || hint}</p>
               {note && <p className="mt-2 rounded-2xl bg-good-soft px-3 py-1.5 text-sm text-good-dark">{note}</p>}
+              <button type="button" onClick={() => setShowHelp(!showHelp)} aria-expanded={showHelp} className="mt-2 text-xs text-muted underline">
+                {showHelp ? 'Hide commands' : 'What can I say?'}
+              </button>
+              {showHelp && (
+                <dl className="mt-2 space-y-1 text-xs">
+                  {HELP.map(([label, example]) => (
+                    <div key={label} className="flex gap-2">
+                      <dt className="w-20 shrink-0 text-muted">{label}</dt>
+                      <dd>{example}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
               <p className="mt-2 text-xs text-muted">Say “stop” to turn the microphone off.</p>
             </>
           )}

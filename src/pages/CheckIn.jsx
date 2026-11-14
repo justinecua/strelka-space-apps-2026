@@ -33,8 +33,16 @@ export default function CheckIn({ state, editing, onSubmit, onCancel }) {
   const [voiceNote, setVoiceNote] = useState('')
   const [problem, setProblem] = useState(null)
   const formRef = useRef(null)
+  // The voice listeners below keep their first version, so they read the newest values from these refs.
+  const latest = useRef({ values, symptoms })
+  const latestCancel = useRef({ editing, onCancel })
 
-  // The floating microphone (VoiceAssistant) sends what it hears and the "save" command as window events.
+  useEffect(() => {
+    latest.current = { values, symptoms }
+    latestCancel.current = { editing, onCancel }
+  })
+
+  // The floating microphone (VoiceAssistant) sends readings, "save" and "cancel" as window events.
   useEffect(() => {
     function onVoice(event) {
       const { values: spoken, symptoms: heard } = event.detail
@@ -49,16 +57,30 @@ export default function CheckIn({ state, editing, onSubmit, onCancel }) {
       if (names.length > 0) setVoiceNote(`Added by voice: ${names.join(', ')}`)
     }
 
-    // Saving by voice goes through the same checks as the Save button.
+    // "save check-in" or "save changes" goes through the same checks as the Save button.
     function onSave() {
       formRef.current?.requestSubmit()
     }
 
+    // "cancel" leaves an edit without saving. A new check-in has nothing to cancel.
+    function onCancelVoice() {
+      const { editing: current, onCancel: cancel } = latestCancel.current
+      if (!current) {
+        window.dispatchEvent(
+          new CustomEvent('strelka:notice', { detail: { message: 'Nothing to cancel. Say "stop" to turn off the microphone.' } }),
+        )
+        return
+      }
+      cancel()
+    }
+
     window.addEventListener('strelka:voice', onVoice)
     window.addEventListener('strelka:save', onSave)
+    window.addEventListener('strelka:cancel', onCancelVoice)
     return () => {
       window.removeEventListener('strelka:voice', onVoice)
       window.removeEventListener('strelka:save', onSave)
+      window.removeEventListener('strelka:cancel', onCancelVoice)
     }
   }, [])
 
@@ -103,6 +125,12 @@ export default function CheckIn({ state, editing, onSubmit, onCancel }) {
           </h1>
           <p className="mt-2 text-muted">{introText(isFirst, alreadyToday, editing)}</p>
         </div>
+      )}
+
+      {editing && (
+        <p className="rounded-2xl bg-watch-soft px-4 py-3 text-watch-text">
+          Editing day {editing.day}. Say “save changes” to keep it, or “cancel” to leave without saving.
+        </p>
       )}
 
       {voiceNote && (
