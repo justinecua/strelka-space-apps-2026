@@ -84,7 +84,19 @@ const RULES = [
   },
   {
     ids: ['mood'],
-    re: /mood\D{0,15}?([1-5])\b/g,
+    re: /(?:mood|overall condition|condition|overall)\D{0,15}?([1-5])\b/g,
+  },
+  {
+    ids: ['resp'],
+    re: /(?:breathing rate|respiratory rate|respiration rate|respiration|breaths per minute|breathing)\D{0,15}?(\d{1,2})\b/g,
+  },
+  {
+    ids: ['fatigue'],
+    re: /(?:fatigue|tiredness)\D{0,15}?([1-5])\b/g,
+  },
+  {
+    ids: ['sleepQuality'],
+    re: /sleep quality\D{0,15}?([1-5])\b/g,
   },
   {
     ids: ['stress'],
@@ -109,6 +121,8 @@ const SYMPTOM_WORDS = {
   rash: /rash|cold sore/,
   chestpain: /chest pain|chest hurts|pain in (?:my )?chest/,
   breath: /short(?:ness)? of breath|can'?t breathe|breathless|hard to breathe/,
+  dizziness: /dizz|light[\s-]?headed/,
+  musclepain: /muscle pain|sore muscles?|muscles? (?:hurt|ache)/,
 }
 
 const NEGATION = /\b(?:no|not|without|don'?t have|dont have)\s+(?:\w+\s+){0,2}$/

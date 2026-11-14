@@ -7,7 +7,7 @@ import StepHeader from '../components/setup/StepHeader.jsx'
 import Button from '../components/ui/Button.jsx'
 import Card from '../components/ui/Card.jsx'
 
-// Every reading field must be filled before a check-in can be saved. Symptoms are optional.
+// Used to fix or add a whole past day from History. Any reading can be left empty, but at least one is needed.
 const FIELD_IDS = CHECKIN_GROUPS.flatMap((group) => group.ids)
 
 function introText(isFirst, alreadyToday, editing) {
@@ -99,14 +99,13 @@ export default function CheckIn({ state, editing, onSubmit, onCancel }) {
 
   function handleSubmit(event) {
     event.preventDefault()
-    const missing = FIELD_IDS.filter((id) => values[id] == null)
+    const filled = FIELD_IDS.some((id) => values[id] != null)
 
-    if (missing.length > 0) {
-      const names = missing.map((id) => INDICATOR_BY_ID[id].label)
-      setProblem({ names })
+    if (!filled && symptoms.length === 0) {
+      setProblem({ names: ['at least one reading or symptom'] })
       // Tells the floating microphone panel too, so a hands-free astronaut hears about it on screen.
-      window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message: `Fill in every field first. Missing: ${names.join(', ')}` } }))
-      document.getElementById(`field-${missing[0]}`)?.focus()
+      window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message: 'Add at least one reading or symptom first.' } }))
+      document.getElementById(`field-${FIELD_IDS[0]}`)?.focus()
       return
     }
 
@@ -162,7 +161,7 @@ export default function CheckIn({ state, editing, onSubmit, onCancel }) {
       <div className="bottom-4 space-y-2 pl-20">
         {problem && (
           <div role="alert" className="fade-in rounded-2xl bg-danger-soft px-4 py-3 text-danger shadow-lg">
-            <p className="font-semibold">Please fill up all the fields first before checking in, astronaut.</p>
+            <p className="font-semibold">Add at least one reading or symptom first.</p>
             <p className="text-sm">Missing: {problem.names.join(', ')}</p>
           </div>
         )}

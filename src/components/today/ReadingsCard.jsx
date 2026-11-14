@@ -1,4 +1,4 @@
-// All readings as pills. The chosen one is shown big, with its last 30 days.
+// One reading at a time, picked from a dropdown in the header. The chosen one is shown big, with its last 30 days.
 
 import { useState } from 'react'
 import { INDICATORS, INDICATOR_BY_ID } from '../../data/indicators.js'
@@ -6,6 +6,7 @@ import { formatValue } from '../../lib/ui.js'
 import BigStat from '../ui/BigStat.jsx'
 import Card from '../ui/Card.jsx'
 import FullScreen from '../ui/FullScreen.jsx'
+import Icon from '../ui/Icon.jsx'
 import IconTip from '../ui/IconTip.jsx'
 import StatusDot from '../ui/StatusDot.jsx'
 import VitalChart from '../vitals/VitalChart.jsx'
@@ -18,30 +19,40 @@ export default function ReadingsCard({ state, result, selectedId, onSelect }) {
 
   return (
     <>
-      <Card title="Readings" onExpand={() => setOpen(true)}>
-        <div className="flex flex-wrap gap-2">
-          {INDICATORS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSelect(item.id)}
-              aria-pressed={item.id === selectedId}
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${
-                item.id === selectedId ? 'border-ink bg-ink text-white' : 'border-ink/30 hover:border-ink'
-              }`}
+      <Card
+        title="Readings"
+        onExpand={() => setOpen(true)}
+        action={
+          <label className="relative flex items-center gap-2 rounded-full border border-ink/30 py-1.5 pr-9 pl-3 text-sm transition focus-within:border-ink hover:border-ink">
+            <StatusDot status={reading.status} />
+            <span className="sr-only">Choose a reading</span>
+            <select
+              value={selectedId}
+              onChange={(event) => onSelect(event.target.value)}
+              className="absolute inset-0 cursor-pointer appearance-none rounded-full opacity-0"
             >
-              <StatusDot status={result.readings[item.id].status} />
-              {item.short} {formatValue(item, result.readings[item.id].value)}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-6 flex items-end justify-between gap-3">
-          <BigStat label={indicator.label} value={formatValue(indicator, reading.value)} unit={indicator.unit} status={reading.status} />
-          <IconTip icon="info" size="sm" title={indicator.label} text={reading.reason} align="right" className="bg-white" />
-        </div>
-        <div className="mt-4">
-          <VitalChart indicator={indicator} entries={state.entries} baseline={state.baseline} />
+              {INDICATORS.map((item) => {
+                const value = result.readings[item.id].value
+                return (
+                  <option key={item.id} value={item.id} className="bg-white text-ink">
+                    {value != null ? `${item.label} · ${formatValue(item, value)} ${item.unit}` : item.label}
+                  </option>
+                )
+              })}
+            </select>
+            <span className="pointer-events-none">{indicator.label}</span>
+            <Icon name="chevron" size={14} className="pointer-events-none absolute right-3 opacity-60" />
+          </label>
+        }
+      >
+        {reading.value != null && (
+          <div className="mt-2 flex items-end justify-between gap-3">
+            <BigStat label={indicator.label} value={formatValue(indicator, reading.value)} unit={indicator.unit} status={reading.status} />
+            <IconTip icon="info" size="sm" title={indicator.label} text={reading.reason} align="right" className="bg-white" />
+          </div>
+        )}
+        <div className={reading.value != null ? 'mt-4' : 'mt-2'}>
+          <VitalChart indicator={indicator} entries={state.entries} baseline={state.baseline} emptyHeight={120} />
         </div>
       </Card>
       {open && (

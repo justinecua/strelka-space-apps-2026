@@ -6,6 +6,7 @@ import { REGION_BY_ID } from '../../data/regions.js'
 import { STATUS } from '../../lib/ui.js'
 import Card from '../ui/Card.jsx'
 import CheckCircle from '../ui/CheckCircle.jsx'
+import EmptyState from '../ui/EmptyState.jsx'
 import FullScreen from '../ui/FullScreen.jsx'
 import IconTip from '../ui/IconTip.jsx'
 import DoNextDetails from './details/DoNextDetails.jsx'
@@ -32,7 +33,12 @@ export default function DoNextCard({ result, doneIds, onToggle }) {
           )
         }
       >
-        {items.length === 0 && <p className="opacity-60">Nothing to do. All readings look normal.</p>}
+        {items.length === 0 &&
+          (result.hasReadings ? (
+            <p className="opacity-60">Nothing to do. All readings look normal.</p>
+          ) : (
+            <EmptyState shape="none" height={0} text="Nothing to check yet" />
+          ))}
 
         <ul className="space-y-2">
           {items.map((finding) => {

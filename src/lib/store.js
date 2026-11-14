@@ -3,7 +3,9 @@
 
 import { useEffect, useState } from 'react'
 import { DEMO_BASELINE, DEMO_PROFILE } from '../data/astronaut.js'
-import { addOrReplaceEntry, dayNumberFor, hasCheckedInToday, removeEntry, saveEntry, todayDate } from './entries.js'
+import { addOrReplaceEntry, dayNumberFor, dayNumberOn, hasCheckedInToday, removeEntry, saveEntry, todayDate } from './entries.js'
+import { mergeRecord } from './records.js'
+import { checkInDate } from './schedule.js'
 import { generateMission } from './seed.js'
 
 const STORAGE_KEY = 'baseline.v3'
@@ -15,13 +17,15 @@ const EMPTY_STATE = {
   baselineSource: 'calibrate',
   baseline: {},
   entries: [],
+  // Every check-in as it was sent, with its type and time. entries holds the per-day summary.
+  records: [],
   doneIds: [],
 }
 
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) return JSON.parse(saved)
+    if (saved) return { ...EMPTY_STATE, ...JSON.parse(saved) }
   } catch {
     // Storage is blocked or broken, so start fresh.
   }
@@ -82,13 +86,38 @@ export function useStore() {
     })
   }
 
+  // Saves one of the four check-ins with its date and time, and folds it into that day's summary entry.
+  // record = { type, values }
+  function addRecord(record) {
+    setState((current) => {
+      const now = new Date()
+      const date = checkInDate(record.type, now)
+      const existing = current.entries.find((entry) => entry.loggedOn === date)
+      const day = dayNumberOn(current.profile, current.entries, date)
+      const saved = { id: `${now.getTime()}-${record.type}`, type: record.type, at: now.toISOString(), loggedOn: date, day, values: record.values }
+      const entry = { ...mergeRecord(existing ?? { symptoms: [] }, saved), day, loggedOn: date }
+      const isNewDay = !existing && date === todayDate()
+
+      return {
+        ...current,
+        records: [...(current.records ?? []), saved],
+        entries: saveEntry(current.entries, entry),
+        doneIds: isNewDay ? [] : current.doneIds,
+      }
+    })
+  }
+
   // entry must include its day (and loggedOn date for real missions).
   function saveEntryForDay(entry) {
     setState((current) => ({ ...current, entries: saveEntry(current.entries, entry) }))
   }
 
   function deleteEntry(day) {
-    setState((current) => ({ ...current, entries: removeEntry(current.entries, day) }))
+    setState((current) => ({
+      ...current,
+      entries: removeEntry(current.entries, day),
+      records: (current.records ?? []).filter((record) => record.day !== day),
+    }))
   }
 
   function toggleDone(id) {
@@ -100,5 +129,5 @@ export function useStore() {
     })
   }
 
-  return [state, { startOwnMission, loadDemo, resetApp, setMission, addEntry, saveEntryForDay, deleteEntry, toggleDone }]
+  return [state, { startOwnMission, loadDemo, resetApp, setMission, addEntry, addRecord, saveEntryForDay, deleteEntry, toggleDone }]
 }
