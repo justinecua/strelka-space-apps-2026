@@ -131,7 +131,7 @@ export default function CheckIn({ state, editing, onSubmit, onCancel }) {
         <SymptomPicker selectedIds={symptoms} onToggle={toggleSymptom} />
       </Card>
 
-      <div className="sticky bottom-4 space-y-2 pl-20">
+      <div className="bottom-4 space-y-2 pl-20">
         {problem && (
           <div role="alert" className="fade-in rounded-2xl bg-danger-soft px-4 py-3 text-danger shadow-lg">
             <p className="font-semibold">Please fill up all the fields first before checking in, astronaut.</p>
