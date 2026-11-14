@@ -88,3 +88,74 @@ describe('check-in tiles by name', () => {
     expect(parseCommand('submit')).toEqual({ type: 'save' })
   })
 })
+
+describe('every action on the site by voice', () => {
+  it.each([
+    // Full-screen cards and closing them
+    ['open the heart card', { type: 'openCard', card: 'heart' }],
+    ['expand sleep and mood', { type: 'openCard', card: 'sleep' }],
+    ['full screen blood', { type: 'openCard', card: 'blood' }],
+    ['open mission log', { type: 'openCard', card: 'missionLog' }],
+    ['open do next', { type: 'openCard', card: 'doNext' }],
+    ['show readings', { type: 'openCard', card: 'readings' }],
+    ['close', { type: 'close' }],
+    ['close full screen', { type: 'close' }],
+    ['exit full screen', { type: 'close' }],
+    // Profile, log out, landing, questions
+    ['log out', { type: 'logout' }],
+    ['logout', { type: 'logout' }],
+    ['sign out', { type: 'logout' }],
+    ['exit demo', { type: 'logout' }],
+    ['reset the app', { type: 'logout' }],
+    ['open my profile', { type: 'profile' }],
+    ['go to the home page', { type: 'landing' }],
+    ['yes', { type: 'answer', yes: true }],
+    ['confirm', { type: 'answer', yes: true }],
+    ['no', { type: 'answer', yes: false }],
+    // Getting around
+    ['go back', { type: 'back' }],
+    ['scroll down', { type: 'scroll', to: 'down' }],
+    ['go to the top', { type: 'scroll', to: 'top' }],
+    ['scroll to the bottom', { type: 'scroll', to: 'bottom' }],
+    ['go home', { type: 'navigate', tab: 'today' }],
+    ['history', { type: 'navigate', tab: 'history' }],
+    ['help', { type: 'help' }],
+    ['what can I say', { type: 'help' }],
+    // Today
+    ['list view', { type: 'layout', layout: 'list' }],
+    ['switch to grid view', { type: 'layout', layout: 'grid' }],
+    ['show the glucose chart', { type: 'reading', id: 'glucose' }],
+    ['heart rate trend', { type: 'reading', id: 'hr' }],
+    ['mark 1 done', { type: 'todo', which: 1 }],
+    ['mark the first item done', { type: 'todo', which: 1 }],
+    ['mark all done', { type: 'todo', which: 'all' }],
+    ['share report', { type: 'report', action: 'download' }],
+    ['download my report', { type: 'report', action: 'download' }],
+    ['copy the report', { type: 'report', action: 'copy' }],
+    ['why compare with my normal', { type: 'why' }],
+    ['toggle theme', { type: 'theme', theme: 'toggle' }],
+    // History
+    ['show day 5', { type: 'showDay', day: 5 }],
+    ['open day 5', { type: 'showDay', day: 5 }],
+    ['edit day 5', { type: 'editDay', day: 5 }],
+    ['add day 5', { type: 'addDay', day: 5 }],
+    ['export day 5', { type: 'export', scope: 'day', day: 5 }],
+    ['add a missed day', { type: 'addMissed' }],
+    ['show more', { type: 'showMore' }],
+    // Body and check-in
+    ['what is space radiation', { type: 'hazard', id: 'radiation' }],
+    ['tell me about isolation', { type: 'hazard', id: 'isolation' }],
+    ['clear the form', { type: 'clearForm' }],
+    ['back to edit', { type: 'cancel' }],
+    ['please go to body', { type: 'navigate', tab: 'body' }],
+  ])('"%s"', (spoken, expected) => {
+    expect(parseCommand(spoken)).toEqual(expected)
+  })
+
+  it('keeps readings and region names from turning into other commands', () => {
+    expect(parseCommand('blood pressure 120 over 80')).toBeNull()
+    expect(parseCommand('show heart')).toEqual({ type: 'region', key: 'heart' })
+    expect(parseCommand('show brain')).toEqual({ type: 'region', key: 'brain' })
+    expect(parseCommand('save report')).toEqual({ type: 'save' })
+  })
+})

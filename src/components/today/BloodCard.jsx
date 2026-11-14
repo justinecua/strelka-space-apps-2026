@@ -1,6 +1,7 @@
 // Blood oxygen and glucose. The expand button opens oxygen, glucose and temperature in full screen.
 
 import { useState } from 'react'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import { INDICATOR_BY_ID } from '../../data/indicators.js'
 import { hasAnyValue } from '../../lib/chartData.js'
 import { formatValue } from '../../lib/ui.js'
@@ -11,6 +12,8 @@ import StatCard from './StatCard.jsx'
 
 export default function BloodCard({ state, result }) {
   const [open, setOpen] = useState(false)
+  // "open the blood card" by voice opens it full screen.
+  useVoiceEvent('open-card', ({ card }) => (card === 'blood' ? setOpen(true) : false))
   const { spo2, glucose } = result.readings
 
   return (

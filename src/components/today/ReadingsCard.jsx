@@ -1,6 +1,7 @@
 // One reading at a time, picked from a dropdown in the header. The chosen one is shown big, with its last 30 days.
 
 import { useState } from 'react'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import { INDICATORS, INDICATOR_BY_ID } from '../../data/indicators.js'
 import { formatValue } from '../../lib/ui.js'
 import BigStat from '../ui/BigStat.jsx'
@@ -14,12 +15,15 @@ import ReadingsDetails from './details/ReadingsDetails.jsx'
 
 export default function ReadingsCard({ state, result, selectedId, onSelect }) {
   const [open, setOpen] = useState(false)
+  // "open the readings card" by voice opens it full screen.
+  useVoiceEvent('open-card', ({ card }) => (card === 'readings' ? setOpen(true) : false))
   const indicator = INDICATOR_BY_ID[selectedId]
   const reading = result.readings[selectedId]
 
   return (
     <>
       <Card
+        id="readings-card"
         title="Readings"
         onExpand={() => setOpen(true)}
         action={

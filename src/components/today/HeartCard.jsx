@@ -1,6 +1,7 @@
 // Heart rate and blood pressure. The expand button opens every heart reading in full screen.
 
 import { useState } from 'react'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import { INDICATOR_BY_ID } from '../../data/indicators.js'
 import { hasAnyValue } from '../../lib/chartData.js'
 import { formatValue } from '../../lib/ui.js'
@@ -11,6 +12,8 @@ import StatCard from './StatCard.jsx'
 
 export default function HeartCard({ state, result }) {
   const [open, setOpen] = useState(false)
+  // "open the heart card" by voice opens it full screen.
+  useVoiceEvent('open-card', ({ card }) => (card === 'heart' ? setOpen(true) : false))
   const recent = state.entries.slice(-14)
   const { hr, sbp } = result.readings
 

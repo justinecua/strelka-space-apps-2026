@@ -7,6 +7,7 @@ import { allFields } from '../../data/checkinTypes.js'
 import { cleanValues, fieldLabel, missingFields, reviewRows, skippedLabels, startingValues } from '../../lib/checkinForm.js'
 import { STATUS } from '../../lib/ui.js'
 import { dictateFields } from '../../lib/voiceForm.js'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import Button from '../ui/Button.jsx'
 import Card from '../ui/Card.jsx'
 import FormField from './FormField.jsx'
@@ -66,6 +67,14 @@ export default function CheckInForm({ type, baseline, onSubmit }) {
 
   useEffect(() => {
     latest.current = { step, values }
+  })
+
+  // "clear the form" by voice: start this check-in again from empty.
+  useVoiceEvent('clear-form', () => {
+    setValues(startingValues(type))
+    setStep('edit')
+    setProblem(null)
+    setVoiceNote('')
   })
 
   function update(key, value) {

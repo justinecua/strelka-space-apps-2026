@@ -2,12 +2,14 @@
 // (Today, Check-in, Body, Relax, History) with a floating voice assistant on every page.
 // The tab is kept in the URL hash (#today, #checkin, #body, #relax, #history) so pages can be linked directly.
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { TABS } from './data/navigation.js'
+import { HAZARD_BY_ID } from './data/hazards.js'
 import { MISSIONS, MISSION_BY_ID } from './data/missions.js'
 import { REGIONS } from './data/regions.js'
 import { getBaseline } from './lib/baseline.js'
-import { dayNumberFor } from './lib/entries.js'
+import { dayNumberFor, todayDate } from './lib/entries.js'
+import { dateOfMissionDay } from './lib/mission.js'
 import { isHighStress } from './lib/stress.js'
 import { useStore } from './lib/store.js'
 import { useTheme } from './lib/theme.js'
@@ -16,6 +18,8 @@ import AppFrame from './components/layout/AppFrame.jsx'
 import BottomNav from './components/layout/BottomNav.jsx'
 import Header from './components/layout/Header.jsx'
 import Logo from './components/layout/Logo.jsx'
+import HazardDialog from './components/hazards/HazardDialog.jsx'
+import ConfirmDialog from './components/ui/ConfirmDialog.jsx'
 import VoiceAssistant from './components/voice/VoiceAssistant.jsx'
 import Body from './pages/Body.jsx'
 import CheckIn from './pages/CheckIn.jsx'
@@ -42,6 +46,12 @@ export default function App() {
   const [regionId, setRegionId] = useState('heart')
   // A past check-in being edited or added from History: { day, loggedOn }. null means today's check-in.
   const [editing, setEditing] = useState(null)
+  // A yes/no question on screen ({ title, text, confirmLabel, danger, onYes }), answerable by click or voice.
+  const [question, setQuestion] = useState(null)
+  // A NASA hazard opened by voice from any page.
+  const [hazardId, setHazardId] = useState(null)
+  // Tabs visited, for "go back".
+  const visited = useRef([])
 
   // Every page compares readings with this baseline (entered, or learned from the first check-ins).
   const calibration = useMemo(() => getBaseline(savedState), [savedState])
@@ -56,7 +66,8 @@ export default function App() {
   // The red dot on the Relax tab and the Relax page message use the latest stress reading (4 or 5 = high).
   const highStress = isHighStress(state.entries.at(-1)?.stress)
 
-  function goTo(nextTab) {
+  function goTo(nextTab, { remember = true } = {}) {
+    if (remember && nextTab !== tab) visited.current = [...visited.current, tab].slice(-20)
     setEditing(null)
     setTab(nextTab)
     window.history.replaceState(null, '', `#${nextTab}`)
@@ -96,35 +107,51 @@ export default function App() {
     setEditing(target)
   }
 
+  // Short messages for the line above the microphone.
+  function notify(message) {
+    window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message } }))
+  }
+
+  // "go back": the previous tab, or nothing to go back to.
+  function goBack() {
+    const previous = visited.current.at(-1)
+    if (!previous) return notify('Nothing to go back to.')
+    visited.current = visited.current.slice(0, -1)
+    goTo(previous, { remember: false })
+  }
+
   // "edit day 5" by voice: opens the same form as the Edit button on History.
   function voiceEditDay(day) {
     const entry = state.entries.find((item) => item.day === day)
-    if (!entry) {
-      window.alert(`There is no check-in for day ${day} yet. Use "add missed day" on the History page.`)
-      return
-    }
+    if (!entry) return notify(`No check-in for day ${day} yet. Say “add day ${day}” to fill it in.`)
     editDay({ day, loggedOn: entry.loggedOn })
   }
 
-  // "delete day 5" by voice: goes to History and asks for confirmation before deleting.
-  function voiceDeleteDay(day) {
-    if (!state.entries.some((item) => item.day === day)) {
-      window.alert(`There is no check-in for day ${day}.`)
-      return
-    }
-    goTo('history')
-    if (window.confirm(`Delete the check-in for day ${day}? This can't be undone.`)) {
-      actions.deleteEntry(day)
-    }
+  // "add day 5" by voice: opens an empty form for a missed day, like "Missed a day?" on History.
+  function voiceAddDay(day) {
+    if (state.entries.some((item) => item.day === day)) return notify(`Day ${day} already has a check-in. Say “edit day ${day}”.`)
+    if (!state.profile.startDate) return notify('Adding past days needs a mission start date, so it is not available in the demo.')
+    const loggedOn = dateOfMissionDay(state.profile.startDate, day)
+    if (day < 1 || loggedOn > todayDate()) return notify(`Day ${day} hasn't happened yet.`)
+    editDay({ day, loggedOn })
+  }
+
+  // Delete a past day, by the Delete button or "delete day 5". Always asks first.
+  function askDeleteDay(day) {
+    if (!state.entries.some((item) => item.day === day)) return notify(`There is no check-in for day ${day}.`)
+    setQuestion({
+      title: `Delete day ${day}?`,
+      text: "This check-in will be removed from your history. This can't be undone.",
+      confirmLabel: 'Delete',
+      danger: true,
+      onYes: () => actions.deleteEntry(day),
+    })
   }
 
   // "show brain" or "go to eyes" by voice: opens the Body page on that region.
   function voiceRegion(key) {
     const region = REGIONS.find((item) => [item.id, item.label, item.name].filter(Boolean).join(' ').toLowerCase().includes(key))
-    if (!region) {
-      window.alert(`Body region not found: ${key}`)
-      return
-    }
+    if (!region) return notify(`Body region not found: ${key}`)
     setRegionId(region.id)
     goTo('body')
   }
@@ -132,23 +159,46 @@ export default function App() {
   // "switch to Mars surface" by voice: changes the mission, the same as the header dropdown.
   function voiceMission(key) {
     const next = MISSIONS.find((item) => item.name.toLowerCase().includes(key))
-    if (!next) {
-      window.alert(`Mission not found: ${key}`)
-      return
-    }
+    if (!next) return notify(`Mission not found: ${key}`)
     actions.setMission(next.id)
   }
 
-  // "dark mode" or "light mode" by voice: sets that exact mode.
+  // "dark mode", "light mode" or "toggle theme" by voice.
   function voiceTheme(wanted) {
-    chooseTheme(wanted)
+    if (wanted === 'toggle') toggleTheme()
+    else chooseTheme(wanted)
   }
 
+  // Reset app / exit demo, from the profile menu or by voice ("log out"). Always asks first.
   function handleReset() {
-    const question = state.isDemo
-      ? 'Leave the demo and go back to the start screen?'
-      : 'Delete your profile and all check-ins on this device?'
-    if (window.confirm(question)) actions.resetApp()
+    setQuestion(
+      state.isDemo
+        ? { title: 'Exit the demo?', text: 'You will go back to the start screen.', confirmLabel: 'Exit demo', onYes: actions.resetApp }
+        : {
+            title: 'Reset the app?',
+            text: 'This deletes your profile and every check-in on this device.',
+            confirmLabel: 'Delete everything',
+            danger: true,
+            onYes: actions.resetApp,
+          },
+    )
+  }
+
+  const voiceActions = {
+    navigate: goTo,
+    back: goBack,
+    editDay: voiceEditDay,
+    addDay: voiceAddDay,
+    deleteDay: (day) => {
+      goTo('history')
+      askDeleteDay(day)
+    },
+    region: voiceRegion,
+    mission: voiceMission,
+    theme: voiceTheme,
+    logout: handleReset,
+    landing: () => setShowLanding(true),
+    hazard: (id) => (HAZARD_BY_ID[id] ? setHazardId(id) : notify('Hazard not found.')),
   }
 
   // First run: no profile yet.
@@ -168,17 +218,33 @@ export default function App() {
     )
   }
 
-  // The logo in the header opens the landing page again, without touching saved data.
+  // The logo in the header (or "go to the home page") opens the landing page again, without touching saved data.
+  // A small microphone stays in the corner, so voice can bring you back ("go to today", "go back").
   if (showLanding) {
+    const leaveLanding = (nextTab = tab) => {
+      setShowLanding(false)
+      goTo(nextTab, { remember: false })
+    }
     return (
-      <Welcome
-        onContinue={() => {
-          setShowLanding(false)
-          goTo('today')
-        }}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      <>
+        <Welcome onContinue={() => leaveLanding('today')} theme={theme} onToggleTheme={toggleTheme} />
+        <div className="fixed right-5 bottom-5 z-50 rounded-full bg-white/70 p-1.5 shadow-2xl ring-1 ring-ink/10 backdrop-blur-xl">
+          <VoiceAssistant
+            tab="landing"
+            compact
+            actions={{
+              ...voiceActions,
+              navigate: leaveLanding,
+              back: () => leaveLanding(),
+              landing: () => {},
+              region: (key) => {
+                setShowLanding(false)
+                voiceRegion(key)
+              },
+            }}
+          />
+        </div>
+      </>
     )
   }
 
@@ -227,7 +293,7 @@ export default function App() {
             mission={mission}
             onEdit={(day) => editDay({ day, loggedOn: state.entries.find((entry) => entry.day === day)?.loggedOn })}
             onAdd={editDay}
-            onDelete={actions.deleteEntry}
+            onDelete={askDeleteDay}
           />
         )}
       </main>
@@ -237,18 +303,25 @@ export default function App() {
         onTabChange={goTo}
         highStress={highStress}
         voice={
-          <VoiceAssistant
-            tab={tab}
-            onNavigate={goTo}
-            onEditDay={voiceEditDay}
-            onDeleteDay={voiceDeleteDay}
-            onRegion={voiceRegion}
-            onMission={voiceMission}
-            onTheme={voiceTheme}
-          />
+<VoiceAssistant tab={tab} actions={voiceActions} />
         }
       />
       <Footer />
+
+      {hazardId && <HazardDialog hazard={HAZARD_BY_ID[hazardId]} onClose={() => setHazardId(null)} />}
+      {question && (
+        <ConfirmDialog
+          title={question.title}
+          text={question.text}
+          confirmLabel={question.confirmLabel}
+          danger={question.danger}
+          onConfirm={() => {
+            setQuestion(null)
+            question.onYes()
+          }}
+          onCancel={() => setQuestion(null)}
+        />
+      )}
     </AppFrame>
   )
 }

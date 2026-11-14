@@ -5,12 +5,18 @@ import { useState } from 'react'
 import { INDICATORS } from '../../../data/indicators.js'
 import { dayNumberFor } from '../../../lib/entries.js'
 import { recentDays, summarizeDays } from '../../../lib/missionLog.js'
+import { useVoiceEvent } from '../../../lib/voiceEvents.js'
 import StreakCard from '../StreakCard.jsx'
 import ReadingRow from './ReadingRow.jsx'
 import TodoList from './TodoList.jsx'
 
 export default function ListView({ state, result, onToggleDone }) {
   const [openId, setOpenId] = useState(null)
+  // Voice: "show the glucose chart" opens that row.
+  useVoiceEvent('reading', ({ id }) => {
+    setOpenId(id)
+    setTimeout(() => document.getElementById(`reading-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  })
   const days = recentDays(state.entries, state.baseline)
   const { goodPercent } = summarizeDays(days)
   // The demo has no calendar date, so its streak counts from the latest entry.

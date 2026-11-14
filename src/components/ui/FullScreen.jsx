@@ -2,9 +2,13 @@
 // Closes on the X button or the Escape key, and stops the page behind it from scrolling.
 
 import { useEffect } from 'react'
+import { useCloseOnVoice } from '../../lib/voiceEvents.js'
 import Icon from './Icon.jsx'
 
 export default function FullScreen({ title, subtitle, onClose, children }) {
+  // Saying "close" closes it, the same as Escape.
+  useCloseOnVoice(onClose)
+
   useEffect(() => {
     function handleKey(event) {
       if (event.key === 'Escape') onClose()

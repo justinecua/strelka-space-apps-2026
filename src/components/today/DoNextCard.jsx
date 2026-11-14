@@ -2,6 +2,7 @@
 // Ticks are saved, and reset when a new day's check-in comes in.
 
 import { useState } from 'react'
+import { useVoiceEvent } from '../../lib/voiceEvents.js'
 import { REGION_BY_ID } from '../../data/regions.js'
 import { STATUS } from '../../lib/ui.js'
 import Card from '../ui/Card.jsx'
@@ -15,6 +16,8 @@ const MAX_ITEMS = 3
 
 export default function DoNextCard({ result, doneIds, onToggle }) {
   const [open, setOpen] = useState(false)
+  // "open the doNext card" by voice opens it full screen.
+  useVoiceEvent('open-card', ({ card }) => (card === 'doNext' ? setOpen(true) : false))
   const items = result.findings.slice(0, MAX_ITEMS)
   const hiddenCount = result.findings.length - items.length
   const doneCount = items.filter((item) => doneIds.includes(item.id)).length
