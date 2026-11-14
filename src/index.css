@@ -94,3 +94,15 @@ body {
     background: #737373;
   }
 }
+/* Landing page starfield: stars fade in and out. */
+@keyframes twinkle {
+  0%, 100% { opacity: var(--star-dim, 0.15); }
+  50% { opacity: var(--star-bright, 0.9); }
+}
+.star {
+  animation: twinkle var(--star-speed, 4s) ease-in-out var(--star-delay, 0s) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star { animation: none; }
+}
