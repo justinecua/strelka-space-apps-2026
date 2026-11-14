@@ -47,7 +47,7 @@ export default function Header({ activeTab, onTabChange, mission, onMissionChang
               </option>
             ))}
           </select>
-          <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-4">⌄</span>
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-4">⌄</span>
         </div>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <ProfileMenu name={name} isDemo={isDemo} onReset={onReset} />
