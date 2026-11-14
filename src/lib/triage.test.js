@@ -206,3 +206,27 @@ describe('history: saving and deleting past check-ins', () => {
     expect(removeEntry(entries, 2).map((entry) => entry.day)).toEqual([1, 4])
   })
 })
+
+describe('empty check-ins', () => {
+  const blank = { day: 1, symptoms: [] }
+
+  it('an empty check-in is "no readings", not "all good"', () => {
+    const r = evaluate([blank], BASELINE)
+    expect(r.tier.id).toBe('nodata')
+    expect(r.hasReadings).toBe(false)
+    expect(r.findings).toEqual([])
+  })
+
+  it('symptoms alone still raise the tier', () => {
+    const r = evaluate([{ ...blank, symptoms: ['chestpain'] }], BASELINE)
+    expect(r.tier.id).toBe('surgeon')
+  })
+
+  it('empty days are left out of the mission log counts', async () => {
+    const { recentDays, summarizeDays } = await import('./missionLog.js')
+    expect(summarizeDays(recentDays([blank], BASELINE)).goodPercent).toBeNull()
+    const days = recentDays([{ day: 1, hr: 62, symptoms: [] }, { ...blank, day: 2 }], BASELINE)
+    expect(days[1].empty).toBe(true)
+    expect(summarizeDays(days)).toMatchObject({ measuredCount: 1, flagged: 0, goodPercent: 100 })
+  })
+})

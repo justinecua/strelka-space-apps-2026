@@ -49,6 +49,17 @@ const MISSION_WORDS = [
   ['space station', /space station|\bleo\b|\bstation\b/],
 ]
 
+const CHECKIN_TYPE_WORDS = [
+  ['symptom', /\bsymptom report\b|\breport (?:a |my )?symptoms?\b|\bsymptom check[\s-]?in\b/],
+  ['morning', /\bmorning check[\s-]?in\b/],
+  ['exercise', /\b(?:post[\s-]?exercise|exercise|workout) check[\s-]?in\b/],
+  ['evening', /\b(?:before[\s-]?sleep|bedtime|evening|night) check[\s-]?in\b/],
+]
+
+function checkinTypeFrom(text) {
+  return firstMatch(text, CHECKIN_TYPE_WORDS)
+}
+
 function firstMatch(text, table) {
   return table.find(([, pattern]) => pattern.test(text))?.[0] ?? null
 }
@@ -92,6 +103,11 @@ export function parseCommand(spoken) {
     const all = /\b(all|everything|whole|full)\b|\bhistory\b/.test(text)
     return { type: 'export', scope: all ? 'all' : 'day' }
   }
+
+  // Check-in types: "morning check-in", "symptom report", "exercise check-in", "before sleep check-in".
+  // Checked before "save", so "start morning check-in" opens the form instead of saving.
+  const checkin = checkinTypeFrom(text)
+  if (checkin) return { type: 'checkinType', checkin }
 
   // Save counts only at the end, so it can follow a reading: "mood 4, save check-in".
   // "save changes" and "save edits" are accepted for editing. "safe" is a common mishearing of "save".

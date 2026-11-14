@@ -1,4 +1,4 @@
-// A floating microphone on every page. Tap it once, then speak: open pages, show body regions, switch missions,
+// The microphone at the right end of the bottom navigation. Its panel opens above it. Tap it once, then speak: open pages, show body regions, switch missions,
 // switch light or dark mode, record readings, save or cancel, edit or delete past days, and export PDF.
 // Pages receive commands through props and window events.
 
@@ -9,20 +9,27 @@ import { parseVoice } from '../../lib/voiceParser.js'
 
 const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
 
-const TAB_NAMES = { today: 'Today', checkin: 'Check-in', body: 'Body', relax: 'Relax', history: 'History' }
+// One example phrase per page, shown when the mic turns on.
+const EXAMPLE = {
+  today: 'go to body',
+  checkin: 'heart rate 62',
+  body: 'show brain',
+  history: 'export PDF',
+  relax: 'start breathing',
+}
 
-const HELP = [
-  ['Pages', '“go to body”, “open history”, “start check-in”'],
-  ['Body', '“show brain”, “go to eyes”, “open lungs”'],
-  ['Mission', '“switch to Mars surface”, “lunar orbit”'],
-  ['Theme', '“dark mode”, “light mode”'],
-  ['Readings', '“heart rate 62, I slept 7 hours, mood 4”'],
-  ['Save', '“save check-in”, “save changes”'],
-  ['Cancel', '“cancel” (leaves an edit without saving)'],
-  ['Past days', '“edit day 5”, “delete day 5”'],
-  ['Export', '“export PDF”, “export all”'],
-  ['Off', '“stop”'],
-]
+// Short messages for the speech errors people actually hit.
+// "network" is what Brave and some other browsers report, because they block the online speech service.
+const ERRORS = {
+  'not-allowed': 'Mic is blocked. Allow it in your browser settings.',
+  'service-not-allowed': 'Voice isn’t available in this browser. Try Chrome or Edge.',
+  network: 'Voice isn’t available in this browser. Try Chrome or Edge.',
+  'audio-capture': 'No microphone found.',
+}
+
+const TAB_NAMES = { today: 'Today', checkin: 'Check-in', body: 'Body', relax: 'Relax', history: 'History' }
+const CHECKIN_NAMES = { morning: 'morning check-in', exercise: 'post-exercise check-in', evening: 'before-sleep check-in', symptom: 'symptom report' }
+
 
 function isPossible(indicator, value) {
   return !((indicator.validMin != null && value < indicator.validMin) || (indicator.validMax != null && value > indicator.validMax))
@@ -30,21 +37,13 @@ function isPossible(indicator, value) {
 
 export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay, onRegion, onMission, onTheme }) {
   const [on, setOn] = useState(false)
-  const [showHelp, setShowHelp] = useState(false)
   const [caption, setCaption] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
-  const [micReady, setMicReady] = useState(false)
   const recognition = useRef(null)
   const wantOn = useRef(false)
   // The speech engine keeps its first callbacks, so it reads the newest props from here.
   const latest = useRef({})
-
-  // Mic stays hidden after a refresh, then fades in.
-  useEffect(() => {
-    const timer = setTimeout(() => setMicReady(true), 1500) // 1500 = 1.5 seconds
-    return () => clearTimeout(timer)
-  }, [])
 
   // Hides the page scrollbar (scrolling with wheel, touch and keyboard still works).
   useEffect(() => {
@@ -69,6 +68,13 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
     },
     [],
   )
+
+  // An error message clears itself after a few seconds.
+  useEffect(() => {
+    if (!error) return
+    const timer = setTimeout(() => setError(''), 6000)
+    return () => clearTimeout(timer)
+  }, [error])
 
   // The check-in page reports problems (like missing fields) here, so they show next to the microphone.
   useEffect(() => {
@@ -137,6 +143,12 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
         setNote(command.scope === 'all' ? 'Exporting all check-ins…' : 'Exporting the open check-in…')
         setTimeout(() => window.dispatchEvent(new CustomEvent('strelka:export', { detail: { scope: command.scope } })), 400)
         break
+      case 'checkinType':
+        // Opens the Check-in page if needed, then asks it to switch to that check-in.
+        if (current.tab !== 'checkin') current.onNavigate('checkin')
+        setNote(`Opening ${CHECKIN_NAMES[command.checkin]}`)
+        setTimeout(() => window.dispatchEvent(new CustomEvent('strelka:checkin-type', { detail: { type: command.checkin } })), 400)
+        break
       case 'cancel':
         if (current.tab !== 'checkin') {
           setNote('Nothing to cancel here.')
@@ -149,7 +161,7 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
         if (current.tab !== 'checkin') {
           setNote('Open the check-in first, then say “save check-in”.')
         } else {
-          setNote('Checking your check-in…')
+          setNote('Checking…')
           // A short wait lets the numbers just spoken reach the form before it is submitted.
           setTimeout(() => window.dispatchEvent(new Event('strelka:save')), 400)
         }
@@ -196,7 +208,7 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
       if (event.error === 'no-speech' || event.error === 'aborted') return
       wantOn.current = false
       setOn(false)
-      setError(event.error === 'not-allowed' ? 'Microphone is blocked. Allow it in the browser settings.' : 'Voice stopped working. Tap the microphone to try again.')
+      setError(ERRORS[event.error] ?? 'Voice stopped. Tap the mic to try again.')
     }
     // Browsers stop listening after a pause, so listening restarts until the astronaut says "stop".
     rec.onend = () => {
@@ -221,67 +233,41 @@ export default function VoiceAssistant({ tab, onNavigate, onEditDay, onDeleteDay
 
   if (!Recognition) return null
 
-  const hint =
-    tab === 'checkin'
-      ? 'Say “heart rate 62”, “I slept 7 hours”, then “save check-in”.'
-      : tab === 'body'
-        ? 'Say “show brain” or “go to eyes”.'
-        : 'Say “go to body”, “edit day 1”, “dark mode” or “export PDF”.'
+  // One line only: what was just heard, the result of a command, or an example to try.
+  const line = error || caption || note || `Try “${EXAMPLE[tab] ?? EXAMPLE.today}”`
 
   return (
-    <div
-      className="fixed z-50 flex flex-col items-start gap-3"
-      style={{
-        left: 'max(4.25rem, calc((100vw - 1800px) / 2 + 47px))',
-        bottom: 'calc(3.25rem + env(safe-area-inset-bottom, 0px) + 4.75rem)',
-      }}
-    >
+    <div className="relative flex items-center gap-1.5">
+      <span className="mx-0.5 h-7 w-px bg-ink/10" aria-hidden="true" />
       {(on || error) && (
-        <div role="status" aria-live="polite" className="fade-in max-w-xs rounded-[24px] border border-line bg-white p-4 shadow-xl">
-          {error ? (
-            <p className="text-danger">{error}</p>
-          ) : (
-            <>
-              <p className="text-sm text-good-dark">Listening…</p>
-              <p className="mt-1 text-lg">{caption || hint}</p>
-              {note && <p className="mt-2 rounded-2xl bg-good-soft px-3 py-1.5 text-sm text-good-dark">{note}</p>}
-              <button type="button" onClick={() => setShowHelp(!showHelp)} aria-expanded={showHelp} className="mt-2 text-xs text-muted underline">
-                {showHelp ? 'Hide commands' : 'What can I say?'}
-              </button>
-              {showHelp && (
-                <dl className="mt-2 space-y-1 text-xs">
-                  {HELP.map(([label, example]) => (
-                    <div key={label} className="flex gap-2">
-                      <dt className="w-20 shrink-0 text-muted">{label}</dt>
-                      <dd>{example}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              <p className="mt-2 text-xs text-muted">Say “stop” to turn the microphone off.</p>
-            </>
-          )}
-        </div>
+        <p
+          role="status"
+          aria-live="polite"
+          className={`fade-in absolute right-0 bottom-full mb-3 flex max-w-[min(22rem,calc(100vw-2rem))] items-center gap-2.5 rounded-full bg-white px-4 py-2.5 text-sm whitespace-nowrap shadow-lg ring-1 ring-ink/10 ${
+            error ? 'text-danger' : ''
+          }`}
+        >
+          {!error && <span className="h-2 w-2 shrink-0 rounded-full bg-good" aria-hidden="true" />}
+          <span className="truncate">{caption ? `“${line}”` : line}</span>
+        </p>
       )}
 
       <button
         type="button"
         onClick={on ? turnOff : turnOn}
         aria-pressed={on}
-        aria-label={on ? 'Turn voice commands off' : 'Turn voice commands on'}
-        className="fixed z-50 grid h-16 w-16 place-items-center rounded-full bg-ink text-white shadow-xl outline-none transition-opacity duration-500 focus-visible:ring-4 focus-visible:ring-good"
-        style={{
-          left: 'max(4.25rem, calc((100vw - 1800px) / 2 + 47px))',
-          bottom: 'calc(3.25rem + env(safe-area-inset-bottom, 0px))',
-          opacity: micReady ? 1 : 0,
-          pointerEvents: micReady ? 'auto' : 'none',
-        }}
+        aria-label={on ? 'Stop talking to Strelka' : 'Talk to Strelka'}
+        title={on ? 'Stop listening' : 'Talk to Strelka'}
+        className={`relative grid h-11 w-11 place-items-center rounded-full outline-none ${on ? 'bg-ink text-white' : 'bg-good text-[#0b0c0d] hover:brightness-105'} transition focus-visible:ring-4 focus-visible:ring-good/50 sm:h-12 sm:w-12`}
       >
-        {on && <span className="absolute inset-0 animate-ping rounded-full bg-good/40" aria-hidden="true" />}
-        <svg viewBox="0 0 24 24" className="relative h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <rect x="9" y="3" width="6" height="11" rx="3" />
-          <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-        </svg>
+        {on ? (
+          <span className="h-4 w-4 rounded-[4px] bg-current" aria-hidden="true" />
+        ) : (
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+          </svg>
+        )}
       </button>
     </div>
   )

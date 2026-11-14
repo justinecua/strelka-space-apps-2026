@@ -9,7 +9,7 @@ export const REGIONS = [
     spot: [100, 30],
     func: 'Thinking, memory, mood and sleep.',
     hazards: ['isolation', 'radiation', 'environment'],
-    indicators: ['sleep', 'mood', 'stress'],
+    indicators: ['sleep', 'sleepQuality', 'mood', 'stress'],
     countermeasures: [
       'Keep a fixed 8.5-hour sleep window with eye mask and earplugs.',
       'Schedule private family calls and crew downtime.',
@@ -64,7 +64,7 @@ export const REGIONS = [
     spot: [117, 118],
     func: 'Exchange oxygen and CO₂ with the cabin air.',
     hazards: ['environment'],
-    indicators: ['spo2'],
+    indicators: ['spo2', 'resp'],
     countermeasures: ['Follow the pre-breathe protocol before spacewalks.', 'Report headaches so CO₂ scrubbers get checked.'],
   },
   {
@@ -107,7 +107,7 @@ export const REGIONS = [
     spot: [77, 290],
     func: 'Movement for spacewalks and surface work.',
     hazards: ['gravity'],
-    indicators: ['exercise'],
+    indicators: ['exercise', 'fatigue'],
     countermeasures: ['Exercise about 90 minutes a day.', 'Eat about 1.2 g of protein per kg a day.'],
   },
 ]

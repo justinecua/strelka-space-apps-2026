@@ -46,6 +46,7 @@ export default function History({ state, onEdit, onAdd, onDelete }) {
           <HistoryRow
             key={entry.day}
             entry={entry}
+            records={(state.records ?? []).filter((record) => record.day === entry.day)}
             tier={tier}
             isOpen={openDay === entry.day}
             onToggle={() => setOpenDay(openDay === entry.day ? null : entry.day)}

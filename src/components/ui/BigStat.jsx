@@ -1,8 +1,15 @@
 // A label with a big number underneath. The colored bar in front shows the status.
+// With no value (null or "—") it renders nothing, so empty cards stay quiet.
 
 import { STATUS } from '../../lib/ui.js'
 
+export function isMissing(value) {
+  return value === null || value === undefined || value === '—'
+}
+
 export default function BigStat({ label, value, unit, status = 'none', align = 'left' }) {
+  if (isMissing(value)) return <div aria-hidden="true" />
+
   return (
     <div className={align === 'right' ? 'text-right' : ''}>
       <p className="text-sm opacity-60">{label}</p>

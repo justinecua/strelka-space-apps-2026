@@ -1,7 +1,10 @@
 // One past check-in: day, date, result and a few key numbers. Tap it to see every value, then edit, export or delete it.
 
 import { INDICATORS, INDICATOR_BY_ID, SYMPTOM_BY_ID } from '../../data/indicators.js'
+import { CHECKIN_TYPES } from '../../data/checkinTypes.js'
 import { formatDate } from '../../lib/entries.js'
+import { recordHighlights } from '../../lib/records.js'
+import { formatTime } from '../../lib/schedule.js'
 import { STATUS, formatValue } from '../../lib/ui.js'
 import Button from '../ui/Button.jsx'
 import Icon from '../ui/Icon.jsx'
@@ -11,7 +14,7 @@ function summary(entry) {
   return `HR ${show('hr')} · BP ${show('sbp')}/${show('dbp')} · Sleep ${show('sleep')} h`
 }
 
-export default function HistoryRow({ entry, tier, isOpen, onToggle, onEdit, onExport, onDelete }) {
+export default function HistoryRow({ entry, records = [], tier, isOpen, onToggle, onEdit, onExport, onDelete }) {
   const date = formatDate(entry.loggedOn)
   const symptoms = entry.symptoms ?? []
 
@@ -43,7 +46,7 @@ export default function HistoryRow({ entry, tier, isOpen, onToggle, onEdit, onEx
       {isOpen && (
         <div className="fade-in space-y-4 px-5 pt-4 pb-5">
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {INDICATORS.map((indicator) => (
+            {INDICATORS.filter((indicator) => entry[indicator.id] != null).map((indicator) => (
               <div key={indicator.id} className="rounded-[16px] bg-white p-3">
                 <dt className="truncate text-xs text-muted">{indicator.label}</dt>
                 <dd className="mt-1 tabular-nums">
@@ -52,6 +55,20 @@ export default function HistoryRow({ entry, tier, isOpen, onToggle, onEdit, onEx
               </div>
             ))}
           </dl>
+
+          {records.length > 0 && (
+            <ul className="space-y-1 text-sm">
+              {records.map((record) => (
+                <li key={record.id} className="flex gap-3">
+                  <span className="w-20 shrink-0 tabular-nums text-muted">{formatTime(record.at)}</span>
+                  <span>
+                    {CHECKIN_TYPES[record.type]?.title}
+                    <span className="text-muted"> · {recordHighlights(record)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <p className="text-sm">
             <span className="text-muted">Symptoms: </span>

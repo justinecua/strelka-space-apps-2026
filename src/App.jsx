@@ -7,16 +7,19 @@ import { TABS } from './data/navigation.js'
 import { MISSIONS, MISSION_BY_ID } from './data/missions.js'
 import { REGIONS } from './data/regions.js'
 import { getBaseline } from './lib/baseline.js'
+import { dayNumberFor } from './lib/entries.js'
 import { isHighStress } from './lib/stress.js'
 import { useStore } from './lib/store.js'
 import { useTheme } from './lib/theme.js'
 import { evaluate } from './lib/triage.js'
 import AppFrame from './components/layout/AppFrame.jsx'
+import BottomNav from './components/layout/BottomNav.jsx'
 import Header from './components/layout/Header.jsx'
 import Logo from './components/layout/Logo.jsx'
 import VoiceAssistant from './components/voice/VoiceAssistant.jsx'
 import Body from './pages/Body.jsx'
 import CheckIn from './pages/CheckIn.jsx'
+import CheckInHub from './pages/CheckInHub.jsx'
 import History from './pages/History.jsx'
 import Relax from './pages/Relax.jsx'
 import Setup from './pages/Setup.jsx'
@@ -78,6 +81,12 @@ export default function App() {
       return
     }
     actions.addEntry(entry)
+    goTo('today')
+  }
+
+  // One of the four check-ins (morning, post-exercise, before sleep, symptom report).
+  function handleRecord(record) {
+    actions.addRecord(record)
     goTo('today')
   }
 
@@ -174,10 +183,9 @@ export default function App() {
   }
 
   return (
-    <AppFrame>
+    <AppFrame withDock>
       <Header
-        activeTab={tab}
-        onTabChange={goTo}
+        day={state.isDemo ? (state.entries.at(-1)?.day ?? null) : dayNumberFor(state.profile, state.entries)}
         mission={mission}
         onMissionChange={actions.setMission}
         name={state.profile.name}
@@ -186,10 +194,9 @@ export default function App() {
         onLogoClick={() => setShowLanding(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
-        highStress={highStress}
       />
 
-      <main className="mt-10 flex-1 pb-4">
+      <main className="mt-10 flex-1 pb-8">
         {tab === 'today' && (
           <Today
             state={state}
@@ -200,7 +207,8 @@ export default function App() {
             onStartCheckIn={() => goTo('checkin')}
           />
         )}
-        {tab === 'checkin' && (
+        {tab === 'checkin' && !editing && <CheckInHub state={state} onSubmit={handleRecord} />}
+        {tab === 'checkin' && editing && (
           <CheckIn
             key={editing ? `edit-${editing.day}` : 'today'}
             state={state}
@@ -224,14 +232,21 @@ export default function App() {
         )}
       </main>
 
-      <VoiceAssistant
-        tab={tab}
-        onNavigate={goTo}
-        onEditDay={voiceEditDay}
-        onDeleteDay={voiceDeleteDay}
-        onRegion={voiceRegion}
-        onMission={voiceMission}
-        onTheme={voiceTheme}
+      <BottomNav
+        activeTab={tab}
+        onTabChange={goTo}
+        highStress={highStress}
+        voice={
+          <VoiceAssistant
+            tab={tab}
+            onNavigate={goTo}
+            onEditDay={voiceEditDay}
+            onDeleteDay={voiceDeleteDay}
+            onRegion={voiceRegion}
+            onMission={voiceMission}
+            onTheme={voiceTheme}
+          />
+        }
       />
       <Footer />
     </AppFrame>

@@ -23,8 +23,14 @@ export default function ReadingRow({ indicator, reading, state, isOpen, onToggle
           <Sparkline values={trend} />
         </span>
         <span className="w-28 text-right tabular-nums">
-          <span className="text-xl">{formatValue(indicator, reading.value)}</span>{' '}
-          <span className="text-sm text-muted">{indicator.unit}</span>
+          {reading.value == null ? (
+            null
+          ) : (
+            <>
+              <span className="text-xl">{formatValue(indicator, reading.value)}</span>{' '}
+              <span className="text-sm text-muted">{indicator.unit}</span>
+            </>
+          )}
         </span>
         <Icon name="chevron" size={16} className={`shrink-0 text-muted transition ${isOpen ? 'rotate-180' : ''}`} />
       </button>

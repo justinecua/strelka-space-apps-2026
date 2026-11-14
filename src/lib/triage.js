@@ -78,22 +78,62 @@ function getTrendFindings(trendingIds) {
   })
 }
 
-function getSymptomFindings(symptoms) {
-  return symptoms.map((id) => {
+// Severity comes from a symptom report (1–5). A severe symptom (4 or 5) goes to the crew medic.
+function getSymptomFindings(symptoms, severity = {}) {
+  return symptoms.filter((id) => SYMPTOM_BY_ID[id]).map((id) => {
     const symptom = SYMPTOM_BY_ID[id]
     const isWarningSign = id === 'chestpain' || id === 'breath'
+    const isSevere = (severity[id] ?? 0) >= 4
     return {
       id: `symptom_${id}`,
       status: isWarningSign ? 'red' : 'yellow',
       region: symptom.region,
       title: symptom.label,
-      message: isWarningSign ? 'Warning symptom reported.' : 'Symptom reported today.',
+      message: isWarningSign
+        ? 'Warning symptom reported.'
+        : isSevere
+          ? `Severe symptom reported (${severity[id]}/5).`
+          : 'Symptom reported today.',
       action: isWarningSign
         ? 'Stop activity, take vitals again now and alert the crew medical officer.'
-        : 'Note when it started and how strong it is. Re-check tomorrow.',
-      escalate: isWarningSign ? 'surgeon' : undefined,
+        : isSevere
+          ? 'Tell your crew medic today and take your vital signs.'
+          : 'Note when it started and how strong it is. Re-check tomorrow.',
+      escalate: isWarningSign ? 'surgeon' : isSevere ? 'cmo' : undefined,
     }
   })
+}
+
+// After exercise, heart rate should drop at least 12 beats in the first minute.
+const SLOW_RECOVERY_DROP = 12
+const VERY_HIGH_EXERCISE_HR = 185
+
+function getExerciseFindings(latest) {
+  const { hrPost, hrRecovery } = latest
+  if (hrPost == null || hrRecovery == null) return []
+  const findings = []
+
+  if (hrPost - hrRecovery < SLOW_RECOVERY_DROP) {
+    findings.push({
+      id: 'exercise_recovery',
+      status: 'yellow',
+      region: 'heart',
+      title: 'Slow heart-rate recovery',
+      message: `Heart rate dropped ${Math.max(0, hrPost - hrRecovery)} bpm in the first minute after exercise. A drop of ${SLOW_RECOVERY_DROP} or more is expected.`,
+      action: 'Rest, drink water and measure your recovery again after the next session. Tell your crew medic if it stays slow.',
+    })
+  }
+  if (hrPost >= VERY_HIGH_EXERCISE_HR) {
+    findings.push({
+      id: 'exercise_peak',
+      status: 'yellow',
+      region: 'heart',
+      title: 'Very high heart rate during exercise',
+      message: `${hrPost} bpm right after exercise.`,
+      action: 'Lower the intensity next session and check that the reading was right.',
+    })
+  }
+  return findings
 }
 
 function pickTier(findings) {
@@ -138,11 +178,12 @@ function getRegionStatus(readings, findings) {
 
 export function evaluate(entries, baseline = {}, mission = null) {
   if (entries.length === 0) {
-    return { latest: null, readings: {}, findings: [], tier: TIERS.nominal, regionStatus: {}, commNote: null }
+    return { latest: null, readings: {}, findings: [], tier: TIERS.nominal, regionStatus: {}, commNote: null, hasReadings: false }
   }
 
   const latest = entries.at(-1)
   const symptoms = latest.symptoms ?? []
+  const hasReadings = INDICATORS.some((indicator) => latest[indicator.id] != null)
   const readings = getReadings(entries, baseline)
   const trendingIds = getTrendingIds(entries, baseline)
 
@@ -150,14 +191,17 @@ export function evaluate(entries, baseline = {}, mission = null) {
     ...getComboFindings(readings, symptoms, trendingIds),
     ...getReadingFindings(readings),
     ...getTrendFindings(trendingIds),
-    ...getSymptomFindings(symptoms),
+    ...getExerciseFindings(latest),
+    ...getSymptomFindings(symptoms, latest.symptomSeverity),
   ]
   findings.sort((a, b) => SEVERITY[b.status] - SEVERITY[a.status])
 
-  const tier = pickTier(findings)
+  // An empty check-in isn't "all good": there is simply nothing to judge yet.
+  const tier = !hasReadings && findings.length === 0 ? TIERS.nodata : pickTier(findings)
 
   return {
     latest,
+    hasReadings,
     readings,
     findings,
     tier,

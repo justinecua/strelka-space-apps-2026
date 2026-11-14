@@ -3,10 +3,11 @@
 
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { chartPoints } from '../../lib/chartData.js'
+import EmptyState from '../ui/EmptyState.jsx'
 
 const TICK = { fill: '#8c8c8c', fontSize: 12 }
 
-export default function VitalChart({ indicator, entries, baseline, days = 30, height = 220 }) {
+export default function VitalChart({ indicator, entries, baseline, days = 30, height = 220, emptyHeight = height }) {
   const points = chartPoints(entries, indicator.id, days)
   const baselineValue = baseline[indicator.id]
 
@@ -14,6 +15,14 @@ export default function VitalChart({ indicator, entries, baseline, days = 30, he
   const pad = indicator.tolerance / 2
   const round = (value) => Number(value.toFixed(indicator.decimals))
   const domain = [(lowest) => round(lowest - pad), (highest) => round(highest + pad)]
+
+  if (!points.some((point) => point.value != null)) {
+    return (
+      <div className="text-ink">
+        <EmptyState text={`No ${indicator.label.toLowerCase()} readings yet`} height={emptyHeight} />
+      </div>
+    )
+  }
 
   return (
     <div className="text-ink">

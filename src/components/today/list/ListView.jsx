@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { INDICATORS } from '../../../data/indicators.js'
 import { dayNumberFor } from '../../../lib/entries.js'
-import { recentDays } from '../../../lib/missionLog.js'
+import { recentDays, summarizeDays } from '../../../lib/missionLog.js'
 import StreakCard from '../StreakCard.jsx'
 import ReadingRow from './ReadingRow.jsx'
 import TodoList from './TodoList.jsx'
@@ -12,13 +12,13 @@ import TodoList from './TodoList.jsx'
 export default function ListView({ state, result, onToggleDone }) {
   const [openId, setOpenId] = useState(null)
   const days = recentDays(state.entries, state.baseline)
-  const goodPercent = Math.round((days.filter((day) => day.ok).length / days.length) * 100)
+  const { goodPercent } = summarizeDays(days)
   // The demo has no calendar date, so its streak counts from the latest entry.
   const todayDay = state.isDemo ? null : dayNumberFor(state.profile, state.entries)
 
   return (
     <div className="mx-auto max-w-3xl space-y-10">
-      <TodoList findings={result.findings} doneIds={state.doneIds} onToggle={onToggleDone} />
+      <TodoList findings={result.findings} hasReadings={result.hasReadings} doneIds={state.doneIds} onToggle={onToggleDone} />
 
       <StreakCard entries={state.entries} todayDay={todayDay} />
 
@@ -41,7 +41,7 @@ export default function ListView({ state, result, onToggleDone }) {
       <section>
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-2xl">Last {days.length} days</h2>
-          <span className="text-sm text-muted">{goodPercent}% good days</span>
+          <span className="text-sm text-muted">{goodPercent === null ? 'No readings yet' : `${goodPercent}% good days`}</span>
         </div>
         <div className="flex flex-wrap gap-1.5 rounded-[24px] bg-field p-5">
           {days.map((day) => (

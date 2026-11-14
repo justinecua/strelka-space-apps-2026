@@ -13,12 +13,12 @@ export default function TodayHeader({ state, result, mission, layout, onLayoutCh
   const { tier, commNote, latest } = result
 
   return (
-    <div className="flex flex-wrap items-end justify-between gap-6">
+    <div className="flex flex-wrap items-end justify-between gap-6 pt-6 pb-4 sm:pt-10 sm:pb-6">
       <div>
         <p className="text-muted">
           Day {latest.day} · {mission.name}
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-4">
+        <div className="mt-3 flex flex-wrap items-center gap-4">
           <h1 className="flex items-center gap-4 text-5xl sm:text-6xl">
             <span className={`h-12 w-2 rounded-full ${STATUS[tier.color].bar}`} />
             {tier.label}
