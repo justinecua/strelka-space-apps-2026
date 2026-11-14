@@ -51,7 +51,6 @@ export default function Header({ activeTab, onTabChange, mission, onMissionChang
               </option>
             ))}
           </select>
-
           <Icon
             name="chevron"
             size={16}
