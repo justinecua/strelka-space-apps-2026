@@ -1,6 +1,6 @@
 // The initials button in the header. It opens a small menu with the profile name and the reset option.
-
 import { useEffect, useRef, useState } from 'react'
+import profileDp from '../../assets/avatar/profile_dp-modified.png';
 
 function initialsOf(name) {
   return name
@@ -13,7 +13,12 @@ function initialsOf(name) {
 
 export default function ProfileMenu({ name, isDemo, onReset }) {
   const [open, setOpen] = useState(false)
+  const [avatarFailed, setAvatarFailed] = useState(false)
   const menuRef = useRef(null)
+
+  useEffect(() => {
+    setAvatarFailed(false)
+  }, [name])
 
   // Close the menu when clicking outside it or pressing Escape.
   useEffect(() => {
@@ -44,9 +49,18 @@ export default function ProfileMenu({ name, isDemo, onReset }) {
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-label="Profile menu"
-        className="grid h-12 w-12 place-items-center rounded-full bg-ink text-white outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
+        className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-surface text-sm font-semibold text-ink outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
       >
-        {initialsOf(name)}
+        {!avatarFailed ? (
+          <img
+            src={profileDp}
+            alt="Profile"
+            className="h-full w-full rounded-full object-cover"
+            onError={() => setAvatarFailed(true)}
+          />
+        ) : (
+          <span>{initialsOf(name || 'User')}</span>
+        )}
       </button>
 
       {open && (
