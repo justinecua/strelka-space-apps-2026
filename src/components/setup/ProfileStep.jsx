@@ -60,7 +60,7 @@ export default function ProfileStep({ onBack, onNext }) {
       </label>
 
       <div className="flex justify-between">
-        <button type="button" onClick={onBack} className="underline">
+        <button type="button" onClick={onBack} className="no-underline">
           Back
         </button>
         <Button type="submit">Next</Button>
