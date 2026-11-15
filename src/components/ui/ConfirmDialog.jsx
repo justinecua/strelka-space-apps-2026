@@ -1,12 +1,16 @@
 // A yes/no question in the app, used instead of the browser's confirm box so it can be answered by voice:
-// "yes" or "confirm" does it, "no" or "cancel" keeps things as they are.
+// "yes" or "confirm" does it, "no" or "cancel" keeps things as they are. The answer doesn't need "Strelka"
+// first: it is a reply to Strelka's own question.
 
+import { useEffect } from 'react'
 import { useVoiceEvent } from '../../lib/voiceEvents.js'
+import { expectAnswer } from '../../lib/voiceWake.js'
 import Button from './Button.jsx'
 import Modal from './Modal.jsx'
 
 export default function ConfirmDialog({ title, text, confirmLabel = 'Yes', danger = false, onConfirm, onCancel }) {
   useVoiceEvent('answer', ({ yes }) => (yes ? onConfirm() : onCancel()))
+  useEffect(() => expectAnswer(), [])
 
   return (
     <Modal title={title} onClose={onCancel}>

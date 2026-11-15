@@ -9,6 +9,7 @@ import { questionFor } from '../../data/checkinQuestions.js'
 import { allFields } from '../../data/checkinTypes.js'
 import { answerFor, isNone } from '../../lib/guidedAnswer.js'
 import { speak, stopSpeaking } from '../../lib/speech.js'
+import { expectAnswer } from '../../lib/voiceWake.js'
 import { cleanValues, fieldIndicator, fieldLabel, missingFields, reviewRows, skippedLabels, startingValues } from '../../lib/checkinForm.js'
 import { STATUS } from '../../lib/ui.js'
 import { dictateFields } from '../../lib/voiceForm.js'
@@ -145,6 +146,8 @@ export default function CheckInForm({ type, baseline, onSubmit, guided = false }
     const text = questionFor(type, field, fieldLabel(field))
     speak(text)
     window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message: text } }))
+    // The answer to this question doesn't need "Strelka" first.
+    expectAnswer()
     return undefined
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guided, step, question, type])
@@ -247,6 +250,7 @@ export default function CheckInForm({ type, baseline, onSubmit, guided = false }
     if (latest.current.guided) {
       speak('That is everything. Check your answers, then say submit to send them.')
       window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message: 'Check your answers, then say “submit”.' } }))
+      expectAnswer()
     }
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -328,7 +332,7 @@ export default function CheckInForm({ type, baseline, onSubmit, guided = false }
         }
       }
       const names = keys.map((key) => fieldLabel(fields.find((field) => field.key === key)))
-      setVoiceNote(`Added by voice: ${names.join(', ')}. Say “review” when you're done.`)
+      setVoiceNote(`Added by voice: ${names.join(', ')}. Say “Strelka, review” when you're done.`)
       window.dispatchEvent(new CustomEvent('strelka:notice', { detail: { message: `Added: ${names.join(', ')}` } }))
     }
 

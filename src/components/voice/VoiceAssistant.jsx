@@ -1,13 +1,17 @@
 // The microphone at the right end of the bottom navigation. One line above it says what is happening.
 // Speech is recognised on the device with Vosk (lib/voiceEngine.js): offline, private and quick.
 //
+// Every command starts with the name, "Strelka" ("Strelka, go to home"), so talk around the astronaut is
+// ignored (see lib/voiceWake.js). Saying just "Strelka" waits a few seconds for the command. Answers to a
+// question Strelka asks in a check-in simulation don't need the name.
+//
 // Three modes:
 //   standby  the default. The mic starts by itself when the app opens and only listens for
-//            "enable voice command" (or "hey Strelka"). No other command does anything.
-//   active   "Strelka is listening…". Every command works until "disable voice command".
+//            "Strelka, enable voice command". No other command does anything.
+//   active   every command works until "Strelka, disable voice command".
 //   off      the mic is closed. Only after "turn off the microphone", or when the device can't do voice.
 //
-// The mode is remembered on this device. Say "enable voice command" once and commands stay on, after a reload
+// The mode is remembered on this device. Say "Strelka, enable voice command" once and commands stay on, after a reload
 // or on the next visit, until "disable voice command". After "turn off the microphone" it stays closed.
 //
 // The button: tap to enable commands, tap again to go back to standby.
@@ -21,6 +25,7 @@ import { createVoiceEngine, isVoiceSupported } from '../../lib/voiceEngine.js'
 import { matchCommand, matchReadings } from '../../lib/voiceMatch.js'
 import { sendVoice } from '../../lib/voiceEvents.js'
 import { isSpeaking } from '../../lib/speech.js'
+import { isAwaitingAnswer, NAME_WORDS, splitName } from '../../lib/voiceWake.js'
 import { CLICK, CLICK_START, clickByName, clickPhrases, screenButtons, screenWords } from '../../lib/voiceScreen.js'
 import { COMMAND_PHRASES, COMMAND_VOCABULARY, WAKE_PHRASES } from '../../lib/voiceVocabulary.js'
 import Modal from '../ui/Modal.jsx'
@@ -76,13 +81,16 @@ function openersOf(phrases, min) {
 // Words people say that aren't commands here. Without them on the list the engine turns "click" into the
 // nearest command word ("glucose", "delete"); with them it hears "click" and Strelka ignores it.
 const NOT_COMMANDS = ['click', 'tap', 'press', 'select', 'choose', 'pick', 'button']
-const COMMAND_GRAMMAR = [...new Set([...COMMAND_PHRASES, ...openersOf(COMMAND_PHRASES, 5), ...NOT_COMMANDS])]
-const WAKE_GRAMMAR = [...new Set([...WAKE_PHRASES, ...openersOf(WAKE_PHRASES, 2)])]
+// The name is its own entry: the engine strings entries together, so "stroger go to home" is heard whole.
+const COMMAND_GRAMMAR = [...new Set([...NAME_WORDS, ...COMMAND_PHRASES, ...openersOf(COMMAND_PHRASES, 5), ...NOT_COMMANDS])]
+const WAKE_GRAMMAR = [...new Set([...NAME_WORDS, ...WAKE_PHRASES, ...openersOf(WAKE_PHRASES, 2)])]
+// After just "Strelka", how long the next words count without the name.
+const NAME_WAIT_MS = 5000
 const PREFIXES = new Set(prefixesOf([...COMMAND_PHRASES, ...WAKE_PHRASES]))
-const STANDBY_HINT = 'Say “enable voice command” to start.'
+const STANDBY_HINT = 'Say “Strelka, enable voice command” to start.'
 
 // Spoken phrases are rarely exact ("okay, enable the voice commands please"), so on and off are matched loosely.
-const ENABLE = /\b(enable|turn on|activate|start|resume|open)\b.*\bvoice\b|\b(hey|ok|okay)\s+strelka\b/i
+const ENABLE = /\b(enable|turn on|activate|start|resume|open)\b.*\bvoice\b/i
 const DISABLE = /\b(disable|turn off|deactivate|stop|pause|close)\b.*\bvoice\b/i
 const MIC_OFF = /\b(turn off|close|switch off)\b.*\b(mic|microphone)\b/i
 
@@ -154,6 +162,8 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
   // Words heard before a pause, waiting for the rest of the sentence (see JOIN_MS).
   const pending = useRef({ text: '', confidence: 1, wait: 0 })
   const flushTimer = useRef(null)
+  // Until when words count without the name, after just "Strelka".
+  const nameUntil = useRef(0)
   // The speech engine keeps its first callbacks, so it reads the newest props from here.
   const latest = useRef({})
   // The words written on the current page, refreshed as the page changes (see lib/voiceScreen.js).
@@ -222,7 +232,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
   }, [pageButtons])
 
   // What the engine listens for. Telling it which words or phrases to expect makes it far more accurate:
-  //   standby   only the wake phrases ("enable voice command"); everything else is ignored.
+  //   standby   only the wake phrases ("Strelka, enable voice command"); everything else is ignored.
   //   active    Strelka's command phrases.
   //   Check-in  only words that appear on the website: Strelka's vocabulary plus every word on the page
   //             (field names, options, symptom names, scale labels), and numbers. What you say comes out in
@@ -231,7 +241,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     let grammar = null
     if (mode === 'standby') grammar = WAKE_GRAMMAR
     else if (mode === 'active' && tab !== 'checkin') grammar = [...COMMAND_GRAMMAR, ...clickPhrases(pageButtons.split('|').filter(Boolean))]
-    else if (mode === 'active') grammar = [...new Set([...COMMAND_VOCABULARY, ...pageWords.split(' ').filter(Boolean)])]
+    else if (mode === 'active') grammar = [...new Set([...NAME_WORDS, ...COMMAND_VOCABULARY, ...pageWords.split(' ').filter(Boolean)])]
     engine.current?.setGrammar(grammar)
   }, [mode, tab, engineState, pageWords, pageButtons])
 
@@ -273,7 +283,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     saveMode('standby')
     setModeBoth('standby')
     setCaption('')
-    setNote('Voice commands off. Say “enable voice command” to turn them back on.')
+    setNote('Voice commands off. Say “Strelka, enable voice command” to turn them back on.')
   }
 
   // Whether the engine is limited to a phrase list right now (standby, or commands outside Check-in).
@@ -328,7 +338,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     }
 
     if (!command) {
-      if (!isStrict() && current.tab !== 'checkin' && !hasReadings) setNote(`Didn't catch that: “${sentence}”. Say “help” for ideas.`)
+      if (!isStrict() && current.tab !== 'checkin' && !hasReadings) setNote(`Didn't catch that: “${sentence}”. Say “Strelka, help” for ideas.`)
       return
     }
 
@@ -362,7 +372,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
           onPage('checkin', 'simulation', { on }, 'Open Check-in to change simulation mode.')
           setNote(on ? 'Simulation on. Strelka will ask one question at a time.' : 'Simulation off. The whole form is shown.')
         } else if (current.tab !== 'checkin' || !sendVoice('guide', { action: command.action })) {
-          setNote('Say “start simulation” on the Check-in page first.')
+          setNote('Say “Strelka, start simulation” on the Check-in page first.')
         }
         break
       case 'answer':
@@ -471,7 +481,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
         break
       case 'save':
         if (current.tab !== 'checkin') {
-          setNote('Open Check-in first, then say “review”.')
+          setNote('Open Check-in first, then say “Strelka, review”.')
         } else {
           setNote('Checking…')
           // A short wait lets the numbers just spoken reach the form before it is checked.
@@ -500,9 +510,15 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
     if (engine.current) return
 
     engine.current = createVoiceEngine({
-      onPartial: (piece) => {
+      onPartial: (heard, raw) => {
         // Strelka is reading a question aloud: that is its own voice, not the astronaut's.
         if (isSpeaking()) return
+        const piece = forStrelka(raw ?? heard)
+        if (piece === null) return
+        if (!piece) {
+          if (modeRef.current === 'active') setCaption('Strelka…')
+          return
+        }
         // Still talking: keep waiting for the rest of a held piece.
         if (pending.current.text) holdPending(pending.current.text, pending.current.confidence, pending.current.wait)
         const text = withPending(piece)
@@ -521,12 +537,26 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
         setCaption(text)
         runEarlyWhenSteady(text)
       },
-      onFinal: (piece, pieceConfidence) => {
+      onFinal: (heard, pieceConfidence, raw) => {
         clearTimeout(earlyTimer.current)
         if (isSpeaking()) {
           setCaption('')
           return
         }
+        const piece = forStrelka(raw ?? heard)
+        // Talk that wasn't for Strelka.
+        if (piece === null) {
+          setCaption('')
+          return
+        }
+        // Just the name: wait a moment for the command.
+        if (!piece) {
+          nameUntil.current = Date.now() + NAME_WAIT_MS
+          setCaption('')
+          setNote(modeRef.current === 'standby' ? STANDBY_HINT : 'Yes? Say a command.')
+          return
+        }
+        nameUntil.current = 0
         const text = withPending(piece)
         // The new words decide: the held opener was already checked against the phrase list.
         const confidence = pieceConfidence
@@ -550,6 +580,17 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
       onStateChange: setEngineState,
     })
     engine.current.start()
+  }
+
+  // The words meant for Strelka, or null for talk that isn't. A sentence counts when it starts with the name;
+  // without it, only right after just "Strelka", while finishing a sentence held over a pause, or as the
+  // answer to a simulation question. '' means the name alone.
+  function forStrelka(raw) {
+    const { called, rest } = splitName(raw)
+    if (called) return rest
+    const now = Date.now()
+    if (now < nameUntil.current || isAwaitingAnswer() || pending.current.text) return rest
+    return null
   }
 
   // The words held from before a pause, followed by the new ones.
@@ -665,7 +706,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
 
   const buttonLabel = {
     off: 'Turn on voice commands',
-    standby: 'Voice commands off. Say “enable voice command” or tap to turn on',
+    standby: 'Voice commands off. Say “Strelka, enable voice command” or tap to turn on',
     active: 'Turn off voice commands',
   }[mode]
 
@@ -674,7 +715,7 @@ export default function VoiceAssistant({ tab, actions, compact = false }) {
       {!compact && <span className="mx-0.5 h-7 w-px bg-ink/10" aria-hidden="true" />}
       {showHelp && (
         <Modal title="What you can say" onClose={() => setShowHelp(false)}>
-          <p className="mt-2 text-sm text-muted">Say “enable voice command” first, then any of these. Say “close” when you're done.</p>
+          <p className="mt-2 text-sm text-muted">Start every command with “Strelka”, like “Strelka, go to history”. Say “Strelka, close” when you're done.</p>
           <div className="mt-6 space-y-5">
             {VOICE_HELP.map((group) => (
               <section key={group.title}>

@@ -62,7 +62,7 @@ export const FEATURES = [
     icon: 'mic',
     tone: 'dark',
     title: 'Hands-free voice',
-    text: 'Say “heart rate 62” or “symptom report”. Made for gloves and floating.',
+    text: 'Say “Strelka, heart rate 62” or “Strelka, symptom report”. Made for gloves and floating.',
   },
   {
     icon: 'body',
