@@ -38,3 +38,6 @@ release
 
 # On-device voice model, downloaded by scripts/fetch-voice-model.mjs
 public/models
+
+# Demo video and slides, kept out of the repository
+deliverables/

@@ -7,7 +7,7 @@ export default function Logo({ inverted = false }) {
   return (
     <div className="flex items-center gap-3">
       <LogoMark inverted={inverted} />
-      <span className="text-2xl">Strelka</span>
+      <span className="font-chalk text-2xl">Strelka</span>
     </div>
   )
 }

@@ -108,7 +108,7 @@ function TopBar({ links, primaryLabel, onPrimary, theme, onToggleTheme, showCta 
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-3">
           <LogoMark className="h-10 w-10" />
-          <span className="text-xl">Strelka</span>
+          <span className="font-chalk text-xl">Strelka</span>
         </button>
         <nav aria-label="Sections" className="hidden items-center gap-1 md:flex">
           {links.map((link, index) => {
@@ -216,7 +216,7 @@ function Hero({ primaryLabel, onPrimary, onDemo, os, showDownloads, buttonsRef }
       <div className="relative mx-auto flex max-w-6xl flex-col items-center px-5 pt-16 pb-24 text-center sm:px-8 sm:pt-20">
         <LogoMark className="logo-land h-28 w-28 sm:h-36 sm:w-36" />
 
-        <h1 className="mt-10 text-6xl leading-[0.98] tracking-tight sm:text-8xl lg:text-[7.5rem]">
+        <h1 className="font-chalk mt-10 pb-4 text-5xl leading-[1.05] sm:pb-6 sm:text-7xl lg:text-[6.5rem]">
           <span className="hero-in block" style={{ '--d': '150ms' }}>
             Stay healthy
           </span>
