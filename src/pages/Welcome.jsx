@@ -9,6 +9,7 @@ import LogoMark from '../components/layout/LogoMark.jsx'
 import ThemeToggle from '../components/layout/ThemeToggle.jsx'
 import Button from '../components/ui/Button.jsx'
 import Icon from '../components/ui/Icon.jsx'
+import ChalkText from '../components/ui/ChalkText.jsx'
 
 const TONES = {
   mint: 'bg-mint',
@@ -108,7 +109,7 @@ function TopBar({ links, primaryLabel, onPrimary, theme, onToggleTheme, showCta 
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-3">
           <LogoMark className="h-10 w-10" />
-          <span className="font-chalk text-xl">Strelka</span>
+          <ChalkText word="strelka" label="Strelka" className="text-xl" />
         </button>
         <nav aria-label="Sections" className="hidden items-center gap-1 md:flex">
           {links.map((link, index) => {
@@ -216,12 +217,14 @@ function Hero({ primaryLabel, onPrimary, onDemo, os, showDownloads, buttonsRef }
       <div className="relative mx-auto flex max-w-6xl flex-col items-center px-5 pt-16 pb-24 text-center sm:px-8 sm:pt-20">
         <LogoMark className="logo-land h-28 w-28 sm:h-36 sm:w-36" />
 
-        <h1 className="font-chalk mt-10 pb-4 text-5xl leading-[1.05] sm:pb-6 sm:text-7xl lg:text-[6.5rem]">
+        {/* Drawn in Chalkduster so it looks the same on every device; the words are read out from sr-only. */}
+        <h1 className="mt-10 pb-4 text-5xl sm:pb-6 sm:text-7xl lg:text-[6.5rem]">
+          <span className="sr-only">Stay healthy in space</span>
           <span className="hero-in block" style={{ '--d': '150ms' }}>
-            Stay healthy
+            <ChalkText word="stayHealthy" className="mx-auto block max-w-full" />
           </span>
-          <span className="hero-in block" style={{ '--d': '300ms' }}>
-            in space
+          <span className="hero-in block" style={{ '--d': '300ms', marginTop: '-0.21em' }}>
+            <ChalkText word="inSpace" className="mx-auto block max-w-full" />
           </span>
         </h1>
         <p className="hero-in mt-6 max-w-md text-xl text-muted" style={{ '--d': '480ms' }}>A daily health check for astronauts.</p>

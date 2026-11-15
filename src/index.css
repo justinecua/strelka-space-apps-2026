@@ -3,9 +3,6 @@
 /* Colors and font. Use them as classes, e.g. bg-mint, bg-good, text-muted. */
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  /* The Strelka name and the hero headline: Chalkduster, which comes with macOS. Other systems get
-     Cabin Sketch, a free look-alike bundled with the app (Chalkduster can't be shipped). Class: font-chalk. */
-  --font-chalk: "Chalkduster", "Cabin Sketch", "Plus Jakarta Sans", cursive;
 
   --color-ink: #111111;
   --color-muted: #8c8c8c;
