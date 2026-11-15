@@ -39,7 +39,8 @@ function cleanText(text) {
   return (text ?? '').replace(/\[unk\]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// handlers: onPartial(text), onFinal(text, confidence 0–1), onError(code), onStateChange('loading' | 'listening' | 'waiting-for-tap')
+// handlers: onPartial(text, raw), onFinal(text, confidence 0–1, raw), onError(code), onStateChange('loading' | 'listening' | 'waiting-for-tap')
+// raw is the text as heard, with "[unk]" (an unknown word) still in it: the voice assistant needs to know what came first.
 export function createVoiceEngine(handlers) {
   let stream = null
   let audioContext = null
@@ -59,10 +60,11 @@ export function createVoiceEngine(handlers) {
       ? new model.KaldiRecognizer(audioContext.sampleRate, JSON.stringify(grammar))
       : new model.KaldiRecognizer(audioContext.sampleRate)
     recognizer.on('partialresult', (message) => {
-      const text = cleanText(message.result.partial)
+      const raw = (message.result.partial ?? '').trim()
+      const text = cleanText(raw)
       if (text && text !== lastPartial) {
         lastPartial = text
-        handlers.onPartial?.(text)
+        handlers.onPartial?.(text, raw)
       }
     })
     recognizer.setWords(true)
@@ -73,7 +75,7 @@ export function createVoiceEngine(handlers) {
       // How sure the engine is, from 0 to 1: the average over the words it recognised.
       const words = (message.result.result ?? []).filter((word) => word.word !== '[unk]')
       const confidence = words.length ? words.reduce((sum, word) => sum + word.conf, 0) / words.length : 1
-      handlers.onFinal?.(text, confidence)
+      handlers.onFinal?.(text, confidence, (message.result.text ?? '').trim())
     })
   }
 

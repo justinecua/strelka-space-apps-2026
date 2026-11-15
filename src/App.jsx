@@ -124,13 +124,13 @@ export default function App() {
   // "edit day 5" by voice: opens the same form as the Edit button on History.
   function voiceEditDay(day) {
     const entry = state.entries.find((item) => item.day === day)
-    if (!entry) return notify(`No check-in for day ${day} yet. Say “add day ${day}” to fill it in.`)
+    if (!entry) return notify(`No check-in for day ${day} yet. Say “Strelka, add day ${day}” to fill it in.`)
     editDay({ day, loggedOn: entry.loggedOn })
   }
 
   // "add day 5" by voice: opens an empty form for a missed day, like "Missed a day?" on History.
   function voiceAddDay(day) {
-    if (state.entries.some((item) => item.day === day)) return notify(`Day ${day} already has a check-in. Say “edit day ${day}”.`)
+    if (state.entries.some((item) => item.day === day)) return notify(`Day ${day} already has a check-in. Say “Strelka, edit day ${day}”.`)
     if (!state.profile.startDate) return notify('Adding past days needs a mission start date, so it is not available in the demo.')
     const loggedOn = dateOfMissionDay(state.profile.startDate, day)
     if (day < 1 || loggedOn > todayDate()) return notify(`Day ${day} hasn't happened yet.`)

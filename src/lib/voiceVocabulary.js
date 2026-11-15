@@ -153,5 +153,5 @@ export const COMMAND_PHRASES = [...new Set([...commandPhrases()].map(spoken))].f
 // In standby only these are listened for; anything else is ignored.
 export const WAKE_PHRASES = [
   'enable voice command', 'enable voice commands', 'enable voice', 'turn on voice', 'turn on voice commands',
-  'hey strelka', 'okay strelka', 'turn off the microphone',
+  'turn off the microphone',
 ].map(spoken)

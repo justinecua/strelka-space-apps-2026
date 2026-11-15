@@ -128,13 +128,13 @@ export default function CheckIn({ state, editing, onSubmit, onCancel }) {
 
       {editing && (
         <p className="rounded-2xl bg-watch-soft px-4 py-3 text-watch-text">
-          Editing day {editing.day}. Say “save changes” to keep it, or “cancel” to leave without saving.
+          Editing day {editing.day}. Say “Strelka, save changes” to keep it, or “Strelka, cancel” to leave without saving.
         </p>
       )}
 
       {voiceNote && (
         <p role="status" className="fade-in rounded-2xl bg-good-soft px-4 py-3 text-good-dark">
-          {voiceNote}. Please check the numbers below, then say “save check-in”.
+          {voiceNote}. Please check the numbers below, then say “Strelka, save check-in”.
         </p>
       )}
 
